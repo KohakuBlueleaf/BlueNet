@@ -3,7 +3,8 @@
 #Original module
 from functions import *				#im2col and col2im function(written by 斎藤康毅)
 from optimizer import *				#SGD/Adam/optimizer/Momentum/RMSprop
-from Activation import *			#ReLU/Elu/GELU/ISRL/ISRLU/Sigmoid/Softplus/Softsign/Tanh/Arctan
+from Activation import *
+from layer import *			#ReLU/Elu/GELU/ISRL/ISRLU/Sigmoid/Softplus/Softsign/Tanh/Arctan
 #from np.dot import np.dot
 
 #Native Module
@@ -26,15 +27,16 @@ class Dense:
 		self.name = 'Dense'
 		#initialize
 		self.output_size = output_size
-		self.shapeIn = None
-		self.shapeOut = None
+		self.shapeIn = None		#shape of data(IN)
+		self.shapeOut = None	#shape of data(OUT)
 		self.params = {}
-		self.params['W1'] = None	#Weight
+		self.params['W1'] = None					#Weight
 		self.params['b1'] = np.zeros(output_size)	#Bias
-		self.size = None
-		self.AF = AF()	#activation function
-		self.x = None	#input
-		self.grad = {}	#Gradient of weight and bias
+		self.size = None	#amount of params(Weight+bias)
+		self.flops = None	#FLOPs of this layer
+		self.AF = AF()		#activation function
+		self.x = None		#input
+		self.grad = {}		#Gradient of weight and bias
 		self.optimizer = optimizer(lr = learning_rate)	#Optimizer
 	
 	def forward(self, x):
@@ -42,7 +44,7 @@ class Dense:
 		b1 = self.params['b1']		#load bias
 		
 		self.x = x
-		a1 = np.dot(x, W1) + b1		#Sum of input
+		a1 = np.dot(x, W1) + b1
 		z1 = self.AF.forward(a1)	#Activation
 		
 		return z1
@@ -55,17 +57,12 @@ class Dense:
 		da1 = self.AF.backward(dy)	#Backpropagation for Activation Function
 		dx = np.dot(da1, W1.T)		#BP for input
 		
-		try:
-			self.grad['W1'] = np.dot(self.x.T,da1)	#BP for weight
-		except:
-			self.grad['W1'] = np.dot(self.x.reshape(self.x.shape[0],self.x.shape[2]).T, da1.reshape(da1.shape[0],da1.shape[2]))
-			self.grad['W1'] = self.grad['W1'].reshape(self.grad['W1'].size//da1.shape[2],da1.shape[2])
-		
+		self.grad['W1'] = np.dot(self.x.T,da1)	#BP for weight
 		self.grad['b1'] = np.sum(da1, axis=0)	#BP for bias
 
 		return dx
 	
-	def save(self, name="Dense_W"):
+	def save(self, name="Dense_W"):		#Save the parameters
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
@@ -73,7 +70,7 @@ class Dense:
 		with open('./weight/Dense_W_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
-	def load(self, name="Dense_W"):
+	def load(self, name="Dense_W"):		#Load the parameters
 		with open('./weight/Dense_W_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
@@ -93,15 +90,16 @@ class Conv:
 		#Initialize
 		self.shapeIn = None
 		self.shapeOut = None
-		self.f_num = conv_param['f_num']			#amount of filters
+		self.f_num = conv_param['f_num']		#amount of filters
 		self.f_size = conv_param['f_size']		#Size of filters
 		self.f_pad = conv_param['pad']			#Padding size
-		self.f_stride = conv_param['stride']		#Step of filters
+		self.f_stride = conv_param['stride']	#Step of filters
 		
 		self.params = {}
 		self.params['W1'] = None
 		self.params['b1'] = np.zeros(self.f_num)
 		self.size = None
+		self.flops = 0
 		self.grad = {}
 		self.stride = self.f_stride
 		self.pad = self.f_pad
@@ -178,6 +176,7 @@ class DeConv:
 		self.params = {}
 		self.params['W1'] = None
 		self.size = None
+		self.flops = 0
 		self.grad = {}
 		self.stride = self.f_stride
 		
@@ -251,14 +250,15 @@ class Pool:
 		self.stride = stride
 		self.pad = pad
 		self.size = 0
+		self.flops = 0
 		self.x = None
 		self.arg_max = None
 		self.out_size = None
 	
 	def forward(self, x):
 		N, C, H, W = x.shape
-		out_h = int(1 + (H - self.pool_h) / self.stride)
-		out_w = int(1 + (W - self.pool_w) / self.stride)
+		out_h = int(1 + (H+self.pad*2 - self.pool_h) / self.stride)
+		out_w = int(1 + (W+self.pad*2 - self.pool_w) / self.stride)
 		self.out_size = (C,out_h,out_w)
 		
 		col = im2col(x, self.pool_h, self.pool_w, self.stride, self.pad)
@@ -284,6 +284,51 @@ class Pool:
 		return dx
 
 
+class PoolAvg:
+	
+	'''
+	Max-Pooling
+	A convolution layer that the filter is choose the biggest value
+	'''
+	
+	def __init__(self, pool_h, pool_w, stride=1, pad=0):
+		self.name = 'Avg-Pool'
+		#Initialize
+		self.shapeIn = None
+		self.shapeOut = None
+		self.pool_h = pool_h
+		self.pool_w = pool_w
+		self.stride = stride
+		self.pad = pad
+		self.size = 0
+		self.flops = 0
+		self.x = None
+		self.arg_max = None
+		self.out_size = None
+	
+	def forward(self, x):
+		N, C, H, W = x.shape
+		out_h = int(1 + (H - self.pool_h) / self.stride)
+		out_w = int(1 + (W - self.pool_w) / self.stride)
+		self.out_size = (C,out_h,out_w)
+		
+		col = im2col(x, self.pool_h, self.pool_w, self.stride, self.pad)
+		col = col.reshape(-1, self.pool_h*self.pool_w)
+		out = np.average(col, axis=1)
+		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)
+		self.x = x
+		
+		return out
+
+	def backward(self, dout):
+		pool_size = self.pool_h * self.pool_w
+		dout = dout.transpose(0, 2, 3, 1)
+		dout = dout.repeat(pool_size).reshape(dout.shape[0],dout.shape[1],-1,pool_size)/pool_size
+		dx = col2im(dout, self.x.shape, self.pool_h, self.pool_w, self.stride, self.pad)
+		
+		return dx
+
+
 class Flatten:
 	
 	'''
@@ -297,6 +342,7 @@ class Flatten:
 		self.shapeOut = None
 		self.in_size=None
 		self.size = 0
+		self.flops = 0
 		
 	def forward(self,x):
 		self.in_size=x.shape
@@ -322,6 +368,7 @@ class BFlatten:
 		self.in_size=None
 		self.out_size=size
 		self.size = 0
+		self.flops = 0
 		
 	def forward(self,x):
 		self.in_size=x.shape
@@ -351,7 +398,10 @@ class BatchNorm:
 		self.params['beta'] = beta
 		self.momentum = momentum
 		self.input_shape = None # Conv is 4d(N C H W), FCN is 2d(N D)
-
+		self.size = 2
+		self.flops = 0
+		
+		#Traning data
 		self.running_mean = running_mean
 		self.running_var = running_var  
 		
@@ -366,8 +416,6 @@ class BatchNorm:
 		#Trainer for gamma&data
 		self.optimizer = optimizer(lr = learning_rate)
 		self.train_flg = False
-		
-		self.size = 2
 		
 	def forward(self, x, train_flg=True):
 		self.input_shape = x.shape
@@ -466,7 +514,8 @@ class Dropout:
 		self.shapeIn = None
 		self.shapeOut = None
 		self.size = 0
-
+		self.flops = 0
+		
 	def forward(self, x, train_flg=True):
 		if train_flg:
 			self.mask = np.random.rand(*x.shape) > self.dropout_ratio
@@ -491,8 +540,12 @@ class ResLayer:
 		self.layers = []
 		
 		self.size = 0
+		self.flops = 0
 		self.shapeOut = None
 		self.shapeIn = None
+		
+		self.Conv = None
+		self.use_conv = False
 		
 	def initial(self,data,init_std,rate=0.001,AF=Elu,optimizer=Adam):
 		Ini = True
@@ -504,17 +557,20 @@ class ResLayer:
 			if self.layer[i].name == 'ConvNet':
 				self.layer[i].params['W1'] = init_std * np.random.randn(self.layer[i].f_num, init.shape[1], self.layer[i].f_size, self.layer[i].f_size)
 				self.layer[i].size = self.layer[i].params['W1'].size+self.layer[i].params['b1'].size
-				
+				out = self.layer[i].forward(init)
+				self.layer[i].flops = (init.shape[1]*self.layer[i].f_size**2)*out.shape[2]*out.shape[3]*out.shape[1]
+				self.flops += self.layer[i].flops
 				self.size += self.layer[i].size
-				init = self.layer[i].forward(init)
+				init = out
 			
 			elif self.layer[i].name == 'Dense':
 				if init.ndim!=2:
 					init = init.reshape(init.shape[0],-1)
 				self.layer[i].params['W1'] = init_std * np.random.randn(init.size, self.layer[i].output_size)
 				self.layer[i].size = self.layer[i].params['W1'].size+self.layer[i].params['b1'].size
-				
+				self.layer[i].flops = (init.shape[1])*self.layer[i].output_size
 				self.size += self.layer[i].size
+				self.flops += self.layer[i].flops
 				init = self.layer[i].forward(init)
 		
 		for i in self.layer:
@@ -526,12 +582,23 @@ class ResLayer:
 		
 		self.layers.pop()
 		
+		if init.shape[1] != data.shape[1]:
+			self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
+			self.Conv.optimizer = optimizer(rate)
+			self.Conv.params['W1'] = init_std * np.random.randn(init.shape[1],data.shape[1],1,1)
+			self.Conv.size = self.Conv.params['W1'].size+self.Conv.params['b1'].size
+			self.use_conv = True
+			self.size += self.Conv.size
+		
 		return init
 	
 	def forward(self,x):
 		out = x
 		for i in self.layers:
 			out = i.forward(out)
+		
+		if self.use_conv:
+			x = self.Conv.forward(x)
 		
 		return self.AF.forward(out)+x
 	
@@ -543,6 +610,8 @@ class ResLayer:
 			dx = i.backward(dx)
 		
 		self.layers.reverse()
+		if self.use_conv:
+			dout = self.Conv.backward(dout)
 		
 		return dx+dout
 	
@@ -553,6 +622,8 @@ class ResLayer:
 		
 			except AttributeError:
 				pass
+		if self.use_conv:
+			self.Conv.optimizer.update(self.Conv.params,self.Conv.grad)
 	
 	def save(self, name="Res"):
 		j = 1
@@ -564,6 +635,8 @@ class ResLayer:
 				pass
 			
 			j+=1
+		if use_conv:
+			self.Conv.save(str(j+1)+'_Res_'+name)
 		
 	def load(self, name="Res"):
 		j = 1
@@ -578,7 +651,9 @@ class ResLayer:
 				pass
 			
 			j+=1	
-
+		if self.use_conv:
+			self.Conv.load(str(j+1)+'_Res_'+name)
+		
 
 class ResLayerV2:
 	
@@ -589,8 +664,10 @@ class ResLayerV2:
 		self.layers = []
 		
 		self.size = 0
+		self.flops = 0
 		self.shapeOut = None
 		self.shapeIn = None
+		self.use_conv = False
 		
 	def initial(self,data,init_std,rate=0.001,AF=Elu,optimizer=Adam):
 		Ini = True
@@ -602,17 +679,20 @@ class ResLayerV2:
 			if self.layer[i].name == 'ConvNet':
 				self.layer[i].params['W1'] = init_std * np.random.randn(self.layer[i].f_num, init.shape[1], self.layer[i].f_size, self.layer[i].f_size)
 				self.layer[i].size = self.layer[i].params['W1'].size+self.layer[i].params['b1'].size
-				
+				out = self.layer[i].forward(init)
+				self.layer[i].flops = (init.shape[1]*self.layer[i].f_size**2)*out.shape[2]*out.shape[3]*out.shape[1]
+				self.flops += self.layer[i].flops
 				self.size += self.layer[i].size
-				init = self.layer[i].forward(init)
+				init = out
 			
 			elif self.layer[i].name == 'Dense':
 				if init.ndim!=2:
 					init = init.reshape(init.shape[0],-1)
 				self.layer[i].params['W1'] = init_std * np.random.randn(init.size, self.layer[i].output_size)
 				self.layer[i].size = self.layer[i].params['W1'].size+self.layer[i].params['b1'].size
-				
+				self.layer[i].flops = (init.shape[1])*self.layer[i].output_size
 				self.size += self.layer[i].size
+				self.flops += self.layer[i].flops
 				init = self.layer[i].forward(init)
 		
 		for i in self.layer:
@@ -622,12 +702,23 @@ class ResLayerV2:
 			self.layers.append(AF())
 			self.layers.append(i)	
 		
+		if init.shape[1] != data.shape[1]:
+			self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
+			self.Conv.optimizer = optimizer(rate)
+			self.Conv.params['W1'] = init_std * np.random.randn(init.shape[1],data.shape[1],1,1)
+			self.Conv.size = self.Conv.params['W1'].size+self.Conv.params['b1'].size
+			self.use_conv = True
+			self.size += self.Conv.size
+		
 		return init
 	
 	def forward(self,x):
 		out = x
 		for i in self.layers:
 			out = i.forward(out)
+		
+		if self.use_conv:
+			x = self.Conv.forward(x)
 		
 		return out+x
 	
@@ -638,7 +729,9 @@ class ResLayerV2:
 			dx = i.backward(dx)
 		
 		self.layers.reverse()
-		
+		if self.use_conv:
+			dout = self.Conv.backward(dout)
+			
 		return dx+dout
 	
 	def train(self):
@@ -648,7 +741,9 @@ class ResLayerV2:
 		
 			except AttributeError:
 				pass
-	
+		if self.use_conv:
+			self.Conv.optimizer.update(self.Conv.params,self.Conv.grad)
+			
 	def save(self, name="Res"):
 		j = 1
 		for i in self.layers:
@@ -659,6 +754,8 @@ class ResLayerV2:
 				pass
 			
 			j+=1
+		if self.use_conv:
+			self.Conv.save(str(j+1)+'_Res_'+name)
 		
 	def load(self, name="Res"):
 		j = 1
@@ -673,6 +770,8 @@ class ResLayerV2:
 				pass
 			
 			j+=1
+		if self.use_conv:
+			self.Conv.load(str(j+1)+'_Res_'+name)
 
 
 class SoftmaxWithLoss:
@@ -690,7 +789,8 @@ class SoftmaxWithLoss:
 		self.y = None 
 		self.t = None 
 		self.size = 0
-	
+		self.flops = 0
+		
 	def forward(self, x, t):
 		self.t = t
 		self.y = softmax(x)

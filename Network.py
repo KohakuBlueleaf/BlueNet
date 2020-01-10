@@ -36,25 +36,28 @@ class Net:
 					self.network[i].params['W1'] = init_std * np.random.randn(self.network[i].f_num, init.shape[1], self.network[i].f_size, self.network[i].f_size)
 					self.network[i].AF = AF()
 					self.network[i].optimizer = optimizer(learning_rate)
-					try:
+					out = self.network[i].forward(init)
+					if self.network[i].name == 'ConvNet':
+						self.network[i].flops = ((init.shape[1]*self.network[i].f_size**2))*out.shape[2]*out.shape[3]*out.shape[1]
 						self.network[i].size = self.network[i].params['W1'].size+self.network[i].params['b1'].size
-					
-					except:
+					else:
+						self.network[i].flops = ((init.shape[1]*self.network[i].f_size**2)-1)*out.shape[2]*out.shape[3]*out.shape[1]
 						self.network[i].size = self.network[i].params['W1'].size
-				
+					init = out	
+					
 				elif self.network[i].name == 'Dense':
 					self.network[i].params['W1'] = init_std * np.random.randn(init.size, self.network[i].output_size)
 					self.network[i].size = self.network[i].params['W1'].size+self.network[i].params['b1'].size
 					self.network[i].AF = AF()
 					self.network[i].optimizer = optimizer(learning_rate)
+					out = self.network[i].forward(init)
+					self.network[i].flops = init.shape[1]*self.network[i].output_size
+					self.network[i].size = self.network[i].params['W1'].size+self.network[i].params['b1'].size
 				
 				elif self.network[i].name == 'ResLayer':
 					self.network[i].AF = AF
 					init = self.network[i].initial(init,init_std,learning_rate,AF,optimizer)
-					if self.network[i].shapeIn != init.shape[1:]:
-						print('Error:ResLayer#{:<d} output size error'.format(i+1))
-						sys.exit()
-					
+
 				else:
 					try:
 						i.optimizer = optimizer(learning_rate)
@@ -62,7 +65,7 @@ class Net:
 					except:
 						pass
 				
-				if self.network[i].name != 'Softmax' and self.network[i].name != 'ResLayer':
+				if self.network[i].name != 'Softmax' and self.network[i].name != 'ResLayer' and self.network[i].name != 'ConvNet' and self.network[i].name != 'DeConvNet':
 					init = self.network[i].forward(init)
 				
 				self.network[i].shapeOut = init.shape[1:]
@@ -71,24 +74,25 @@ class Net:
 	
 	def print_size(self):
 		total = 0
-		print("┌───────────┬───────────┬────────────────┬───────────────┐")
-		print("│   Layer   │   Wsize   │    Shape(In)   │   Shape(Out)  │")
+		total_f = 0 
+		print("┌───────────┬───────┬──────────┬──────────────┬─────────────┐")
+		print("│   Layer   │ GFLOPs│  Params  │   Shape(In)  │  Shape(Out) │")
 		for i in self.network:
 			total += i.size
-			print("├───────────┼───────────┼────────────────┼───────────────┤")
-			print("│{:^11}│{:^11}│{:^16}│{:^15}│".format(i.name,i.size,str(i.shapeIn).replace(' ',''),str(i.shapeOut).replace(' ','')))
+			total_f += i.flops
+			print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
+			print("│{:^11}│{:^7.3f}│{:>10}│{:>14}│{:>13}│".format(i.name,i.flops/1000000000,i.size,str(i.shapeIn).replace(' ',''),str(i.shapeOut).replace(' ','')))
 		
-		print("├───────────┼───────────┼────────────────┼───────────────┤")
-		print("│   Total   │{:^11}│                │               │".format(total))
-		print("└───────────┴───────────┴────────────────┴───────────────┘")	
+		print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
+		print("│   Total   │{:^7.2f}│{:>10}│              │             │".format(total_f/1000000000,total))
+		print("└───────────┴───────┴──────────┴──────────────┴─────────────┘")	
 		
 	def process(self,input):
 		for i in range(self.layers):
-			try:
-				if self.network[i].name != 'DropOut':
+			if self.network[i].name != 'DropOut':
+				if self.network[i].name != 'Softmax':
 					input = self.network[i].forward(input)
-			
-			except:
+				else:
 					input = self.network[i].forward_without_loss(input)
 
 		return input

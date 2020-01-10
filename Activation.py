@@ -1,6 +1,6 @@
 # coding: utf-8
 from functions import *	
-from numpy import exp			#			#e^x
+from numpy import exp			
 
 
 #
