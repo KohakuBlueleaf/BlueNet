@@ -8,7 +8,7 @@ import gzip
 import pickle
 import os
 import numpy as np
-
+from functions import *
 
 url_base = 'http://yann.lecun.com/exdb/mnist/'
 key_file = {
@@ -87,7 +87,7 @@ def _change_one_hot_label(X):
 	return T
 
 
-def load_mnist(normalize=True, flatten=True, one_hot_label=False):
+def load_mnist(normalize=True, flatten=True, one_hot_label=True, smooth=False):
 	"""MNISTデータセットの読み込み
 
 	Parameters
@@ -120,7 +120,11 @@ def load_mnist(normalize=True, flatten=True, one_hot_label=False):
 	if not flatten:
 		for key in ('train_img', 'test_img'):
 			dataset[key] = dataset[key].reshape(-1, 1, 28, 28)
-
+	
+	if smooth:
+		dataset['train_label'] = label_smoothing(dataset['train_label'],0.01)
+		dataset['test_label'] = label_smoothing(dataset['test_label'],0.01)
+	
 	return (dataset['train_img'], dataset['train_label']), (dataset['test_img'], dataset['test_label'])
 
 

@@ -11,6 +11,7 @@ from layer import *			#ReLU/Elu/GELU/ISRL/ISRLU/Sigmoid/Softplus/Softsign/Tanh/A
 import pickle
 import numpy as np
 from numpy import exp
+import sys
 
 
 #
@@ -288,7 +289,7 @@ class PoolAvg:
 	
 	'''
 	Max-Pooling
-	A convolution layer that the filter is choose the biggest value
+	A convolution layer that the filter is caclulate the average.
 	'''
 	
 	def __init__(self, pool_h, pool_w, stride=1, pad=0):
@@ -546,6 +547,8 @@ class ResLayer:
 		
 		self.Conv = None
 		self.use_conv = False
+		self.pool = None
+		self.use_pool = False
 		
 	def initial(self,data,init_std,rate=0.001,AF=Elu,optimizer=Adam):
 		Ini = True
@@ -562,7 +565,19 @@ class ResLayer:
 				self.flops += self.layer[i].flops
 				self.size += self.layer[i].size
 				init = out
-			
+				
+				if init.shape[1] != data.shape[1]:
+					self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
+					self.Conv.optimizer = optimizer(rate)
+					self.Conv.params['W1'] = init_std * np.random.randn(init.shape[1],data.shape[1],1,1)
+					self.Conv.size = self.Conv.params['W1'].size+self.Conv.params['b1'].size
+					self.use_conv = True
+				
+				if init.shape[2] != data.shape[2]:
+					if init.shape[2] == data.shape[2]//2:
+						self.use_pool = True
+						self.pool = Pool(2,2,2)
+				
 			elif self.layer[i].name == 'Dense':
 				if init.ndim!=2:
 					init = init.reshape(init.shape[0],-1)
@@ -581,14 +596,9 @@ class ResLayer:
 			self.layers.append(AF())
 		
 		self.layers.pop()
-		
-		if init.shape[1] != data.shape[1]:
-			self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
-			self.Conv.optimizer = optimizer(rate)
-			self.Conv.params['W1'] = init_std * np.random.randn(init.shape[1],data.shape[1],1,1)
-			self.Conv.size = self.Conv.params['W1'].size+self.Conv.params['b1'].size
-			self.use_conv = True
+		if use_conv:
 			self.size += self.Conv.size
+			self.flops += self.Conv.flops
 		
 		return init
 	
@@ -596,9 +606,10 @@ class ResLayer:
 		out = x
 		for i in self.layers:
 			out = i.forward(out)
-		
 		if self.use_conv:
 			x = self.Conv.forward(x)
+		if self.use_pool:
+			x = self.pool.forward(x)
 		
 		return self.AF.forward(out)+x
 	
@@ -610,6 +621,8 @@ class ResLayer:
 			dx = i.backward(dx)
 		
 		self.layers.reverse()
+		if self.use_pool:
+			dout = self.pool.backward(dout)
 		if self.use_conv:
 			dout = self.Conv.backward(dout)
 		
@@ -667,7 +680,11 @@ class ResLayerV2:
 		self.flops = 0
 		self.shapeOut = None
 		self.shapeIn = None
+		
+		self.Conv = None
 		self.use_conv = False
+		self.pool = None
+		self.use_pool = False
 		
 	def initial(self,data,init_std,rate=0.001,AF=Elu,optimizer=Adam):
 		Ini = True
@@ -684,6 +701,26 @@ class ResLayerV2:
 				self.flops += self.layer[i].flops
 				self.size += self.layer[i].size
 				init = out
+				
+				if init.shape[1] != data.shape[1]:
+					self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
+					self.Conv.optimizer = optimizer(rate)
+					self.Conv.params['W1'] = init_std * np.random.randn(init.shape[1],data.shape[1],1,1)
+					self.Conv.size = self.Conv.params['W1'].size+self.Conv.params['b1'].size
+					self.Conv.AF = AF()
+					self.use_conv = True
+				
+				if init.shape[2] != data.shape[2]:
+					if init.shape[2] == data.shape[2]//2:
+						self.use_pool = True
+						self.pool = Pool(2,2,2)
+					elif init.shape[2] == (data.shape[2]//2)+1:
+						self.use_pool = True
+						self.pool = Pool(2,2,2,1)
+					else:
+						print(init.shape)
+						print('Shape Error')
+						sys.exit()
 			
 			elif self.layer[i].name == 'Dense':
 				if init.ndim!=2:
@@ -701,15 +738,10 @@ class ResLayerV2:
 			self.layers.append(BatchNorm())	
 			self.layers.append(AF())
 			self.layers.append(i)	
-		
-		if init.shape[1] != data.shape[1]:
-			self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
-			self.Conv.optimizer = optimizer(rate)
-			self.Conv.params['W1'] = init_std * np.random.randn(init.shape[1],data.shape[1],1,1)
-			self.Conv.size = self.Conv.params['W1'].size+self.Conv.params['b1'].size
-			self.use_conv = True
+		if self.use_conv:
 			self.size += self.Conv.size
-		
+			self.flops += self.Conv.flops
+
 		return init
 	
 	def forward(self,x):
@@ -719,6 +751,8 @@ class ResLayerV2:
 		
 		if self.use_conv:
 			x = self.Conv.forward(x)
+		if self.use_pool:
+			x = self.pool.forward(x)
 		
 		return out+x
 	
@@ -729,6 +763,8 @@ class ResLayerV2:
 			dx = i.backward(dx)
 		
 		self.layers.reverse()
+		if self.use_pool:
+			dout = self.pool.backward(dout)
 		if self.use_conv:
 			dout = self.Conv.backward(dout)
 			
@@ -774,6 +810,350 @@ class ResLayerV2:
 			self.Conv.load(str(j+1)+'_Res_'+name)
 
 
+class LSTM:
+	
+	'''
+	Long short-term memory
+	'''
+	
+	def __init__(self,Wx,Wh,b):
+		self.name = 'LSTM'
+		#parameters and grads
+		self.params = [Wx, Wh, b]
+		self.grad = [np.zeros_like(i) for i in self.params]
+		
+		#gate
+		self.sigm1 = Sigmoid()
+		self.sigm2 = Sigmoid()
+		self.sigm3 = Sigmoid()
+		self.tanIn = Tanh()
+		self.tanOu = Tanh()
+		
+		#data for backward
+		self.In = None
+		self.Hin = None
+		self.Tout = None
+		self.Tin = None
+		self.Cin = None
+		
+		#other
+		self.optimizer = Adam(0.01)
+		self.size = 0
+		self.flops = 0
+		
+	def forward(self,input,Hin=None,C=None):
+		Wx,Wh,b = self.params
+		N, H = Hin.shape
+		if Hin is None:
+			Hin = np.zeros_like(input)
+		if C is None:
+			C = np.zeros_like(input)
+		A = np.dot(input,Wx)+np.dot(Hin,Wh)+b
+		
+		#slice
+		f = A[:, :H]
+		g = A[:, H:2*H]
+		i = A[:, 2*H:3*H]
+		o = A[:, 3*H:]
+		
+		Sf = self.sigm1.forward(f)
+		Tin = self.tanIn.forward(g)
+		Si = self.sigm2.forward(i)
+		So = self.sigm3.forward(o)
+		Cout = C*Sf+Si*Tin
+		Tout = self.tanOu.forward(Cout)
+		Hout = Tout*So
+		
+		self.Hin = Hin
+		self.In = input
+		self.Cin = C
+		self.Tout = Tout
+		self.Tin = Tin
+
+		return Hout,Cout
+	
+	def backward(self,dOut,dHout,dC):
+		Wx,Wh,b = self.params
+		dHout = dOut+dHout
+		dTout = self.tanOu.backward(dHout*self.sigm3.out)
+		dCin = (dC+dTout)*self.sigm1.out
+		df = self.sigm1.backward((dC+dTout)*self.Cin)			#df
+		dg = self.tanIn.backward((dC+dTout)*self.sigm2.out)		#dg
+		di = self.sigm2.backward((dC+dTout)*self.Tin)			#di
+		do = self.sigm3.backward(dOut*self.Tout)				#do
+		
+		dA = np.hstack((df,dg,di,do))
+		self.grad[2] = np.hstack((np.sum(df,axis=0),np.sum(dg,axis=0),np.sum(di,axis=0),np.sum(do,axis=0)))
+		self.grad[1] = np.dot(self.Hin.T, dA)
+		self.grad[0] = np.dot(self.In.T, dA)
+
+		dHin = np.dot(dA, Wh.T)
+		dIn = np.dot(dA, Wx.T)
+	
+		return dIn,dHin,dCin
+
+
+class TimeLSTM:
+	
+	def __init__(self,stateful=False):
+		self.name = 'TimeLSTM'
+		self.flops = 0
+		self.size = 0
+		self.params={}
+		self.params['Wx'] = None
+		self.params['Wh'] = None
+		self.params['b'] = None
+		
+		self.grad = {}
+		self.grad['Wx'] = None
+		self.grad['Wh'] = None
+		self.grad['b'] = None	
+		
+		self.h, self.c = None,None
+		self.dh = None
+		self.stateful = stateful
+		
+		self.optimizer = Adam(0.01)
+		
+	def forward(self, xs):
+		Wx, Wh, b = self.params['Wx'],self.params['Wh'],self.params['b']
+		N, T, D = xs.shape
+		H = Wh.shape[0]
+		
+		self.layers = []
+		hs = np.empty((N, T, H), dtype='f')
+		
+		if not self.stateful or self.h is None:
+			self.h = np.zeros((N,H), dtype='f')
+		if not self.stateful or self.c is None:
+			self.c = np.zeros((N,H), dtype='f')
+
+		for t in range(T):
+			layer = LSTM(Wx,Wh,b)
+			self.h, self.c = layer.forward(xs[:, t, :], self.h, self.c)
+			hs[:, t, :] = self.h
+			
+			self.layers.append(layer)
+			
+		return hs
+		
+	def backward(self,dhs):
+		Wx, Wh, b = self.params['Wx'],self.params['Wh'],self.params['b']
+		N, T, H = dhs.shape
+		D = Wx.shape[0]
+		
+		dxs = np.empty((N, T, D), dtype='f')
+		dh, dc = 0, 0
+		
+		grads = [0,0,0]
+		for t in reversed(range(T)):
+			layer = self.layers[t]
+			dx, dh, dc = layer.backward(dhs[:, t, :], dh, dc)
+			try:
+				dxs[:, t, :] = dx
+			except:
+				print(dxs.shape)
+			for i , grad in enumerate(layer.grad):
+				grads[i] += grad
+				
+		self.grad['Wx'] = grads[0]
+		self.grad['Wh'] = grads[1]
+		self.grad['b'] = grads[2]
+		self.dh = dh
+		
+		return dxs
+		
+	def set_state(self, h, c=None):
+		self.h, self.c= h,c
+		
+	def reset_state(self):
+		self.h, self.c = None, None
+
+	def save(self, name):
+		params = {}
+		for key, val in self.params.items():
+			params[key] = val
+	
+		with open('./weight/TimeLSTM_'+name, 'wb') as f:
+			pickle.dump(params, f)
+	
+	def load(self, name):
+		with open('./weight/TimeLSTM_'+name, 'rb') as f:
+			params = pickle.load(f)
+		
+		for key, val in params.items():
+			self.params[key] = val
+	
+
+class GRU:
+	
+	'''
+	Gated Recurrent Unit
+	'''
+	
+	def __init__(self,Wx,Wh,b):
+		self.name = 'LSTM'
+		#parameters and grads
+		self.params = [Wx, Wh, b]
+		
+		self.grad = [np.zeros_like(i) for i in self.params]
+		
+		#gate
+		self.sigm1 = Sigmoid()
+		self.sigm2 = Sigmoid()
+		self.tanIn = Tanh()
+		
+		#data for backward
+		self.In = None
+		self.Hin = None
+		self.Tout = None
+		self.Tin = None
+		self.Cin = None
+		
+		#other
+		self.optimizer = Adam(0.01)
+		self.size = 0
+		self.flops = 0
+		
+	def forward(self,input,Hin=None):
+		Wx,Wh,b = self.params
+		N, H = Hin.shape
+		
+		x = np.dot(input,Wx)
+		h = np.dot(Hin,Wh)
+		
+		#slice
+		r = x[:, :H]+h[:, :H]+b[:H]
+		u = x[:, H:2*H]+h[:, H:2*H]+b[H:2*H]
+		xo = x[:, 2*H:]+b[2*H:]
+		ho = h[:, 2*H:]
+		
+		Sr = self.sigm1.forward(r)	#reset Gate(sigmoid)
+		Su = self.sigm2.forward(u)	#update gate(sigmoid)
+		To = self.tanIn.forward(ho*Sr+xo)	#Ouput gate(Tanh)
+		Hout = (Su-1)*Hin+(Su*To)
+		
+		self.Hin = Hin
+		self.In = input
+		self.To = To
+
+		return Hout
+	
+	def backward(self,dOut,dHout):
+		Wx,Wh,b = self.params
+		dHout = dOut+dHout
+		
+		dSu = dHout*self.Hin+dHout*self.To
+		dTo = dHout*self.sigm2.out
+		dSr = dTo*self.Hin
+		dHin = dTo*self.sigm1.out
+		
+		dr = self.sigm1.backward(dSr)
+		du = self.sigm1.backward(dSu)
+		do = self.tanIn.backward(dTo)
+		
+		dx = np.hstack((dr,du,do))
+		dh = np.hstack((dr,du,do*self.sigm1.out))
+		self.grad[2] = np.hstack((np.sum(dr,axis=0),np.sum(du,axis=0),np.sum(do,axis=0)))
+		self.grad[1] = np.dot(self.Hin.T, dh)
+		self.grad[0] = np.dot(self.In.T, dx)
+
+		dHin += np.dot(dh, Wh.T)
+		dIn = np.dot(dx, Wx.T)
+	
+		return dIn,dHin
+
+
+class TimeGRU:
+	
+	def __init__(self,stateful=False):
+		self.name = 'TimeGRU'
+		self.flops = 0
+		self.size = 0
+		self.params={}
+		self.params['Wx'] = None
+		self.params['Wh'] = None
+		self.params['b'] = None
+		
+		self.grad = {}
+		self.grad['Wx'] = None
+		self.grad['Wh'] = None
+		self.grad['b'] = None	
+		
+		self.h = None
+		self.dh = None
+		self.stateful = stateful
+		
+		self.optimizer = Adam(0.01)
+		
+	def forward(self, xs):
+		Wx, Wh, b = self.params['Wx'],self.params['Wh'],self.params['b']
+		N, T, D = xs.shape
+		H = Wh.shape[0]
+		
+		self.layers = []
+		hs = np.empty((N, T, H), dtype='f')
+		
+		if not self.stateful or self.h is None:
+			self.h = np.zeros((N,H), dtype='f')
+
+		for t in range(T):
+			layer = GRU(Wx,Wh,b)
+			self.h = layer.forward(xs[:, t, :], self.h)
+			hs[:, t, :] = self.h
+			
+			self.layers.append(layer)
+			
+		return hs
+		
+	def backward(self,dhs):
+		Wx, Wh, b = self.params['Wx'],self.params['Wh'],self.params['b']
+		N, T, H = dhs.shape
+		D = Wx.shape[0]
+		
+		dxs = np.empty((N, T, D), dtype='f')
+		dh = 0
+		
+		grads = [0,0,0]
+		for t in reversed(range(T)):
+			layer = self.layers[t]
+			dx, dh = layer.backward(dhs[:, t, :], dh)
+			try:
+				dxs[:, t, :] = dx
+			except:
+				print(dxs.shape)
+			for i , grad in enumerate(layer.grad):
+				grads[i] += grad
+				
+		self.grad['Wx'] = grads[0]
+		self.grad['Wh'] = grads[1]
+		self.grad['b'] = grads[2]
+		self.dh = dh
+		
+		return dxs
+		
+	def set_state(self, h, c=None):
+		self.h, self.c= h,c
+		
+	def reset_state(self):
+		self.h, self.c = None, None
+
+	def save(self, name):
+		params = {}
+		for key, val in self.params.items():
+			params[key] = val
+	
+		with open('./weight/TimeGRU_'+name, 'wb') as f:
+			pickle.dump(params, f)
+	
+	def load(self, name):
+		with open('./weight/TimeGRU_'+name, 'rb') as f:
+			params = pickle.load(f)
+		
+		for key, val in params.items():
+			self.params[key] = val
+	
+	
 class SoftmaxWithLoss:
 	
 	'''
@@ -783,6 +1163,7 @@ class SoftmaxWithLoss:
 	def __init__(self):
 		self.name = 'Softmax'
 		#Initialize
+		self.params = {}
 		self.shapeIn = None
 		self.shapeOut = None
 		self.loss = None

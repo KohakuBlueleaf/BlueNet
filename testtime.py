@@ -2,10 +2,20 @@
 from time import time
 import numpy as np
 from config import Network as model
+from config import batch_size
 from Network import Net
 
-net = Net(model,data_shape=(1,28,28))
-data = np.random.randn(100,1,28,28)
+shape = (3,32,32)
+
 start = time()
-A = net.process(data)
-print(time()-start)
+net = Net(model,data_shape=shape)
+print('Initializing time:',time()-start)
+
+data = np.random.randn(10,shape[0],shape[1],shape[2])
+test = np.random.randn(10,10)
+
+start = time()
+net.train(data,test)
+net.loss(data,test)
+print('Sec per train step(Batch size 10):',(time()-start))
+input()

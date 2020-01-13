@@ -1,11 +1,12 @@
 # coding: utf-8
-import sys, os
-sys.path.append(os.pardir) 
-import numpy as np
+
 from layer import *
 from functions import *
 from optimizer import *
+
+import numpy as np
 import sys
+
 
 class Net:
 	
@@ -24,8 +25,9 @@ class Net:
 		
 		if not Ini:
 			init = np.random.randn(data_shape[0],data_shape[1],data_shape[2])
-			for i in range(len(self.network)):
-				if i == 0:
+			j = 0
+			for i in range(self.layers):
+				if j == 0:
 					if self.network[i].name == 'ConvNet' or self.network[i].name == 'DeConvNet' or self.network[i].name == 'ResLayer':
 						init = init.reshape(1,init.shape[0],init.shape[1],init.shape[2])
 					elif self.network[i].name == 'Dense':
@@ -58,9 +60,10 @@ class Net:
 					self.network[i].AF = AF
 					init = self.network[i].initial(init,init_std,learning_rate,AF,optimizer)
 
+				
 				else:
 					try:
-						i.optimizer = optimizer(learning_rate)
+						self.network[i].optimizer = optimizer(learning_rate)
 					
 					except:
 						pass
@@ -69,6 +72,7 @@ class Net:
 					init = self.network[i].forward(init)
 				
 				self.network[i].shapeOut = init.shape[1:]
+				j += 1
 		else:
 			pass
 	
@@ -88,41 +92,34 @@ class Net:
 		print("└───────────┴───────┴──────────┴──────────────┴─────────────┘")	
 		
 	def process(self,input):
-		for i in range(self.layers):
-			if self.network[i].name != 'DropOut':
-				if self.network[i].name != 'Softmax':
-					input = self.network[i].forward(input)
+		for i in self.network:
+			if i.name != 'DropOut':
+				if i.name != 'Softmax':
+					input = i.forward(input)
 				else:
-					input = self.network[i].forward_without_loss(input)
+					input = i.forward_without_loss(input)
 
 		return input
 
 	def forward(self,input,t):
 		for i in range(self.layers):
-			try:
+			if self.network[i].name != 'Softmax':
 				input = self.network[i].forward(input)
-			
-			except:
+			else:
 				input = self.network[i].forward(input,t)
 		
 		return input
-
-	def train(self,input,answer):
-		t = answer
-		for i in range(self.layers):
-			try:
-				input = self.network[i].forward(input)
 		
-			except:
-					input = self.network[i].forward(input,t)
-		error = input
-		
+	def backward(self,error):	
 		self.network.reverse()
 		for i in range(self.layers):
 			error = self.network[i].backward(error)
-			#print(error.shape)
-		
 		self.network.reverse()		
+	
+	def train(self,input,answer):
+		t = answer
+		error = self.forward(input, t)
+		self.backward(error)	
 		for i in range(self.layers):
 			if self.network[i].name == 'ResLayer':
 				self.network[i].train()
@@ -130,22 +127,11 @@ class Net:
 			else:
 				try:
 					self.network[i].optimizer.update(self.network[i].params,self.network[i].grad)
-			
 				except AttributeError:
 					pass
-	
-	def backward(self,error):	
-		self.network.reverse()
-		for i in range(self.layers):
-			try:
-				error = self.network[i].backward(error)
-			
-			except AttributeError:
-				pass
-		self.network.reverse()		
 		
 		return error
-	
+
 	def back_train(self,error):
 		self.network.reverse()
 		for i in range(self.layers):
@@ -159,15 +145,15 @@ class Net:
 		
 		for i in range(self.layers):
 			try:
-				self.network[i].AdaGrad.update(self.network[i].params,self.network[i].grad)
+				self.network[i].optimizer.update(self.network[i].params,self.network[i].grad)
 		
 			except AttributeError:
 				pass
 		
 	def accuracy(self, x, t):
 		ac = 0
-		for i in range(x.shape[0]//100):
-			batch = np.arange(i*100,100+i*100)
+		for i in range(x.shape[0]//10):
+			batch = np.arange(i*10,10+i*10)
 			
 			x_batch = x[batch]
 			t_batch = t[batch]
@@ -201,9 +187,6 @@ class Net:
 				pass
 			
 			except FileNotFoundError:#file not found(Conv)
-				pass
-			
-			except OSError:#file not found(affine)
 				pass
 	
 	def save(self):

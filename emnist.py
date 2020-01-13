@@ -56,4 +56,11 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True):
 		testset['data'] = testset['data'].reshape(-1, 1, 28, 28)
 
 	return (dataset['data'], dataset['labels']), (testset['data'], testset['labels'])
-
+'''
+(x_train, t_train), (x_test, t_test) = load_emnist(flatten=False, one_hot_label=False)
+print(x_train.shape)
+print(t_train.shape)
+print(x_test.shape)
+print(t_test.shape)
+print(t_test[20799])
+'''
