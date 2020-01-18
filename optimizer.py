@@ -1,5 +1,6 @@
 # coding: utf-8
-import numpy as np
+from setting import np
+
 
 class SGD:
 
@@ -113,6 +114,10 @@ class Adam:
 			for key, val in params.items():
 				self.m[key] = np.zeros_like(val)
 				self.v[key] = np.zeros_like(val)
+		if self.m == {}:
+			for key, val in params.items():
+				self.m[key] = np.zeros_like(val)
+				self.v[key] = np.zeros_like(val)
 		
 		self.iter += 1
 		lr_t  = self.lr * np.sqrt(1.0 - self.beta2**self.iter) / (1.0 - self.beta1**self.iter)		 
@@ -125,4 +130,4 @@ class Adam:
 				params[key] -= lr_t * self.m[key] / (np.sqrt(self.v[key]) + 1e-7)
 			except ValueError:
 				pass
-			
+

@@ -1,7 +1,6 @@
 # coding: utf-8
-import numpy as np
-import math
-from scipy.special import erf
+from setting import np
+from setting import erf
 
 '''
 Activation Functions
@@ -13,7 +12,7 @@ def identity_function(x):
 	
 	return x
 
-def step_function(x):
+def step_function(x): #Binary
 	
 	return np.array(x > 0, dtype=np.int)
 
@@ -53,10 +52,6 @@ def tanh(x):
 	
 	return sinh(x) / cosh(x)
 
-def sech(x):
-	
-	return 1/cosh(x)
-
 def tanh_grad(x):
 	
 	return 1-(tanh(x)**2)
@@ -81,12 +76,20 @@ def arctan_grad(x):
 
 def softsign(x):
 	
-	return x/(1+np.abs(x))
+	return x/(np.abs(x)+1)
 	
 def softsign_grad(x):
 	
-	return 1/(1+np.abs(x))**2
+	return 1/(np.abs(x)+1)**2
+
+def softclip(x):
 	
+	return(np.log((1+np.exp(x))/(1+np.exp(x-1))))
+	
+def softclip_grad(x):
+
+	return((-1+np.e)*np.exp(x))/((np.exp(x)+1)*(np.exp(x)+np.e))
+
 def isru(x,a=1):
 
 	return x*(1/(1+a*x**2)**0.5)
@@ -103,7 +106,7 @@ def erf_grad(x):
 	
 	return (2/np.pi**0.5)*(np.exp(-x**2))
 
-def gelu_erf(x): #use scipy.special.erf(also approximation but more accurate)
+def gelu_erf(x): #use scipy.special.erf/cupyx.scipy.special.erf
 	
 	return 0.5*x*(1+erf(x/sqrt2))
 
@@ -211,17 +214,19 @@ def numerical_gradient(f, x):
 		
 	return grad
 
-def change_one_hot_label(X):
-	T = np.zeros((X.size, 10))
+def _change_one_hot_label(X,class_num = 10):
+	X = np.asarray(X)
+	T = np.zeros((X.size, class_num))
 	for idx, row in enumerate(T):
 		row[X[idx]] = 1
 
 	return T
 
-def label_smoothing(input, e=0.1):
+def label_smoothing(input, e=0.01):
 	k = input.shape[-1]
 	
 	return(1-e)*input+(e/k)
+
 
 '''
 im2col col2im
@@ -232,6 +237,7 @@ def smooth_curve(x):
 	s = np.r_[x[window_len-1:0:-1], x, x[-1:-window_len:-1]]
 	w = np.kaiser(window_len, 2)
 	y = np.convolve(w/w.sum(), s, mode='valid')
+	
 	return y[5:len(y)-5]
 
 def shuffle_dataset(x, t):
@@ -242,10 +248,12 @@ def shuffle_dataset(x, t):
 	return x, t
 
 def conv_output_size(input_size, filter_size, stride=1, pad=0):
+	
 	return (input_size + 2*pad - filter_size) / stride + 1
 
 def im2col(input_data, filter_h, filter_w, stride=1, pad=0):
 	N, C, H, W = input_data.shape
+	
 	out_h = (H + 2*pad - filter_h)//stride + 1
 	out_w = (W + 2*pad - filter_w)//stride + 1
 
@@ -259,15 +267,18 @@ def im2col(input_data, filter_h, filter_w, stride=1, pad=0):
 			col[:, :, y, x, :, :] = img[:, :, y:y_max:stride, x:x_max:stride]
 
 	col = col.transpose(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1)
+	
 	return col
 
 def col2im(col, input_shape, filter_h, filter_w, stride=1, pad=0):
 	N, C, H, W = input_shape
+	
 	out_h = (H + 2*pad - filter_h)//stride + 1
 	out_w = (W + 2*pad - filter_w)//stride + 1
+	
 	col = col.reshape(N, out_h, out_w, C, filter_h, filter_w).transpose(0, 3, 4, 5, 1, 2)
-
 	img = np.zeros((N, C, H + 2*pad + stride - 1, W + 2*pad + stride - 1))
+	
 	for y in range(filter_h):
 		y_max = y + stride*out_h
 		for x in range(filter_w):
@@ -276,9 +287,11 @@ def col2im(col, input_shape, filter_h, filter_w, stride=1, pad=0):
 
 	return img[:, :, pad:H + pad, pad:W + pad]
 
+
 '''
 Function for NLP
 '''
+
 def preprocess(text):
 	words = text.lower().split()
 	
@@ -324,6 +337,7 @@ def most_similar(query, word_to_id, id_to_word, word_matrix, top=5):
 	if query not in word_to_id:
 		print(query,'is not found')
 		return
+	
 	print('\n[query]'+query)
 	query_id = word_to_id[query]
 	query_vec = word_matrix[query_id]
@@ -337,9 +351,10 @@ def most_similar(query, word_to_id, id_to_word, word_matrix, top=5):
 	for i in (-1*similarity).argsort():
 		if id_to_word[i] == query:
 			continue
-		print(' %s: %s'%(id_to_word[i],similarity[i]))
 		
+		print(' %s: %s'%(id_to_word[i],similarity[i]))
 		count += 1
+		
 		if count >= top:
 			return
 
@@ -348,17 +363,20 @@ def ppmi(C, verbose=False, eps=1e-8):
 	N = np.sum(C)
 	S = np.sum(C, axis=0)
 	total = C.shape[0] * C.shape[1]
-	cnt = 0
 	
+	cnt = 0
 	for i in range(C.shape[0]):
 		for j in range(C.shape[1]):
 			temp = (C[i,j]*N/(S[j]*S[i])+eps)
 			pmi = np.log2(temp)
 			M[i,j]=max(0, pmi)
-			
 			if verbose:
 				cnt+=1
 				if cnt%(total//1000) == 0:
 					print('%.1f%% done'%(100*cnt/total),end='\r',flush=True)
+	
 	print('100.0% done')
+	
 	return M
+	
+

@@ -4,28 +4,33 @@ from layer import *
 from Activation import *
 
 #Hyperparameters
-rate=0.001
-batch_size=60
-iters_num=100
-init_std=0.01
+rate = 0.001
+batch_size = 200
+init_std = 0.01
+init_mode = 'xaiver'
 
 #function for network
 optimizer = Adam
-AF = Elu
+AF = Tanh
 
 #The model of network
 Network = 	[
-			Conv({'f_num':15, 'f_size':5, 'pad':0, 'stride':1}),
-			Conv({'f_num':30, 'f_size':6, 'pad':0, 'stride':2}),
-			Pool(pool_h=2, pool_w=2, stride=2),
+			Conv({'f_num':32, 'f_size':5, 'pad':2, 'stride':1}),
+			Pool(2,2,2),
+			
+			Conv({'f_num':64, 'f_size':5, 'pad':2, 'stride':1}),
+			Pool(2,2,2),
+
+			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
+			Pool(2,2,2),
+			
 			Flatten(),
-			Dense(output_size=420),
-			Dense(output_size=230),
+			
+			Dense(output_size=512),
 			Dense(output_size=10),
 			
 			SoftmaxWithLoss()
 			]
-
 #Usual model
 
 '''
@@ -210,18 +215,18 @@ ResNet18 = 	[
 			ResLayerV2([Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1})]),
 
-			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':2}),
-			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
+			ResLayerV2([Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':2}),
+						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1})]),
 			
-			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':2}),
-			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
+			ResLayerV2([Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':2}),
+						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1})]),
 			
-			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':2}),
-			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
+			ResLayerV2([Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':2}),
+						Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1})]),
 
@@ -244,8 +249,8 @@ ResNet34 = 	[
 			ResLayerV2([Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1})]),
 
-			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':2}),
-			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
+			ResLayerV2([Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':2}),
+						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
@@ -253,8 +258,8 @@ ResNet34 = 	[
 			ResLayerV2([Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1})]),
 			
-			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':2}),
-			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
+			ResLayerV2([Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':2}),
+						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':1}),
@@ -266,8 +271,8 @@ ResNet34 = 	[
 			ResLayerV2([Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1})]),
 			
-			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':2}),
-			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
+			ResLayerV2([Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':2}),
+						Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1}),
@@ -295,9 +300,9 @@ ResNet50 = 	[
 						Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':1})]),
 			
-			Conv({'f_num':128, 'f_size':1, 'pad':0, 'stride':2}),
-			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1}),
+			ResLayerV2([Conv({'f_num':128, 'f_size':1, 'pad':0, 'stride':2}),
+						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
+						Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':128, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1})]),
@@ -308,9 +313,9 @@ ResNet50 = 	[
 						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1})]),
 			
-			Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':2}),
-			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':1024, 'f_size':1, 'pad':0, 'stride':1}),
+			ResLayerV2([Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':2}),
+						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
+						Conv({'f_num':1024, 'f_size':1, 'pad':0, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':1024, 'f_size':1, 'pad':0, 'stride':1})]),
@@ -327,9 +332,9 @@ ResNet50 = 	[
 						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':1024, 'f_size':1, 'pad':0, 'stride':1})]),
 			
-			Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':2}),
-			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':2048, 'f_size':1, 'pad':0, 'stride':1}),
+			ResLayerV2([Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':2}),
+						Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
+						Conv({'f_num':2048, 'f_size':1, 'pad':0, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':2048, 'f_size':1, 'pad':0, 'stride':1})]),
@@ -344,7 +349,7 @@ ResNet50 = 	[
 			SoftmaxWithLoss()
 			]
 
-ResNet101 = 	[
+ResNet101 = [
 			Conv({'f_num':64, 'f_size':7, 'pad':3, 'stride':2}),
 			Pool(pool_h=3, pool_w=3, stride=2, pad=1),
 			
@@ -358,9 +363,9 @@ ResNet101 = 	[
 						Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':1})]),
 			
-			Conv({'f_num':128, 'f_size':1, 'pad':0, 'stride':2}),
-			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1}),
+			ResLayerV2([Conv({'f_num':128, 'f_size':1, 'pad':0, 'stride':2}),
+						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
+						Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':128, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1})]),
@@ -371,9 +376,9 @@ ResNet101 = 	[
 						Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1})]),
 			
-			Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':2}),
-			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':1024, 'f_size':1, 'pad':0, 'stride':1}),
+			ResLayerV2([Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':2}),
+						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
+						Conv({'f_num':1024, 'f_size':1, 'pad':0, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':256, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':1024, 'f_size':1, 'pad':0, 'stride':1})]),
@@ -441,9 +446,9 @@ ResNet101 = 	[
 						Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':1024, 'f_size':1, 'pad':0, 'stride':1})]),
 			
-			Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':2}),
-			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':2048, 'f_size':1, 'pad':0, 'stride':1}),
+			ResLayerV2([Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':2}),
+						Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
+						Conv({'f_num':2048, 'f_size':1, 'pad':0, 'stride':1})]),
 			ResLayerV2([Conv({'f_num':512, 'f_size':1, 'pad':0, 'stride':1}),
 						Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
 						Conv({'f_num':2048, 'f_size':1, 'pad':0, 'stride':1})]),
@@ -458,7 +463,7 @@ ResNet101 = 	[
 			SoftmaxWithLoss()
 			]
 			
-ResNet152 = 	[
+ResNet152 = [
 			Conv({'f_num':64, 'f_size':7, 'pad':3, 'stride':2}),
 			Pool(pool_h=3, pool_w=3, stride=2, pad=1),
 			
