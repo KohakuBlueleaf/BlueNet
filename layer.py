@@ -84,7 +84,8 @@ class Dense:
 					self.params[key] = np.asarray(val)
 				except:
 					self.params[key] = cp.asnumpy(val)
-
+			else:
+				print('weight shape error')
 
 class Conv:
 
@@ -187,7 +188,8 @@ class Conv:
 					self.params[key] = np.asarray(val)
 				except:
 					self.params[key] = cp.asnumpy(val)
-
+			else:
+				print('weight shape error')
 
 class DeConv:
 
@@ -529,15 +531,16 @@ class BatchNorm:
 		self.size = 2
 		self.flops = 0
 	
-	def process(self, x):
-		input_shape = x.shape
+	def process(self, x, train_flg=False):
+		self.input_shape = x.shape
+		self.train_flg = train_flg
 		if x.ndim != 2:
 			N, C, H, W = x.shape
 			x = x.reshape(N, -1)
 
-		out = self.__forward(x, False)
+		out = self.__forward(x, train_flg)
 		
-		return out.reshape(*input_shape)
+		return out.reshape(*self.input_shape)
 	
 	def forward(self, x, train_flg=True):
 		self.input_shape = x.shape
@@ -624,10 +627,7 @@ class BatchNorm:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			try:
-				self.params[key] = np.asarray(val)
-			except:
-				self.params[key] = cp.asnumpy(val)
+			self.params[key] = val
 
 
 class Dropout:

@@ -11,27 +11,75 @@ init_mode = 'xaiver'
 
 #function for network
 optimizer = Adam
-AF = Tanh
+AF = GELU
 
 #The model of network
 Network = 	[
+			Conv({'f_num':16, 'f_size':7, 'pad':3, 'stride':1}),
+			Pool(2,2,2),
+			BatchNorm(),
+			
 			Conv({'f_num':32, 'f_size':5, 'pad':2, 'stride':1}),
 			Pool(2,2,2),
+			BatchNorm(),
 			
-			Conv({'f_num':64, 'f_size':5, 'pad':2, 'stride':1}),
+			Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1}),
 			Pool(2,2,2),
-
-			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
-			Pool(2,2,2),
+			BatchNorm(),
 			
+			Conv({'f_num':640, 'f_size':3, 'pad':0, 'stride':1}),
 			Flatten(),
+			BatchNorm(),
 			
-			Dense(output_size=512),
-			Dense(output_size=10),
+			Dense(output_size=400),
+			BatchNorm(),
+			
+			Dense(output_size=26),
 			
 			SoftmaxWithLoss()
 			]
 #Usual model
+
+
+
+'''
+LeNet
+'''
+
+LeNet = [
+			Conv({'f_num':6, 'f_size':5, 'pad':2, 'stride':1}),
+			Pool(2,2,2),
+			Conv({'f_num':16, 'f_size':5, 'pad':0, 'stride':1}),
+			Pool(2,2,2),
+			Conv({'f_num':120, 'f_size':5, 'pad':0, 'stride':1}),
+			Flatten(),
+			Dense(output_size=84),
+			Dense(output_size=10),
+				
+			SoftmaxWithLoss()
+		]
+
+
+'''
+AlexNet
+'''
+
+AlexNet=[
+			Conv({'f_num':96, 'f_size':11, 'pad':3, 'stride':4}),
+			Pool(3,3,2),
+			Conv({'f_num':256, 'f_size':5, 'pad':2, 'stride':1}),
+			Pool(3,3,2),
+			Conv({'f_num':384, 'f_size':3, 'pad':1, 'stride':1}),
+			Conv({'f_num':384, 'f_size':3, 'pad':1, 'stride':1}),
+			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
+			Pool(3,3,2),
+			Flatten(),
+			Dense(output_size=4096),
+			Dense(output_size=4096),
+			Dense(output_size=1000),
+			
+			SoftmaxWithLoss()
+			]
 
 '''
 VGG
