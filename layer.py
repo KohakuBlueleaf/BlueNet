@@ -41,6 +41,12 @@ class Dense:
 		#data for backward
 		self.x = None
 	
+	def process(self, x):
+		a1 = np.dot(x, self.params['W1']) + self.params['b1']
+		z1 = self.AF.process(a1)
+		
+		return z1
+	
 	def forward(self, x):
 		self.x = x
 		a1 = np.dot(x, self.params['W1']) + self.params['b1']
@@ -55,6 +61,7 @@ class Dense:
 		dx = np.dot(da1, self.params['W1'].T)				#BP for input
 		
 		self.grad['W1'] = np.dot(self.x.T,da1)				#BP for weight
+		self.x = None
 		self.grad['b1'] = np.sum(da1, axis=0)				#BP for bias
 
 		return dx
@@ -63,19 +70,20 @@ class Dense:
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
-	
-		with open('./weight/Dense_W_'+name, 'wb') as f:
+		
+		with open('./weight/new/Dense_W_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
 	def load(self, name="Dense_W"):							#Load the parameters
-		with open('./weight/Dense_W_'+name, 'rb') as f:
+		with open('./weight/new/Dense_W_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			try:
-				self.params[key] = np.asarray(val)
-			except:
-				self.params[key] = cp.asnumpy(val)
+			if val.shape == self.params[key].shape: 
+				try:
+					self.params[key] = np.asarray(val)
+				except:
+					self.params[key] = cp.asnumpy(val)
 
 
 class Conv:
@@ -112,6 +120,21 @@ class Conv:
 		self.x_shape = None   									#shape of input
 		self.col = None											#colume of input
 	
+	def process(self, x):
+		FN, C, FH, FW = self.params['W1'].shape
+		N, C, H, W = x.shape
+		
+		out_h = 1 + int((H + 2*self.pad - FH) / self.stride)
+		out_w = 1 + int((W + 2*self.pad - FW) / self.stride)
+		
+		col = im2col(x, FH, FW, self.stride, self.pad)					#Change the image to colume
+		col_W = self.params['W1'].reshape(FN, -1).T						#Change the filters to colume
+		out = np.dot(col, col_W) + self.params['b1']
+		out = self.AF.process(out)
+		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)	#change colume to image
+
+		return out
+	
 	def forward(self, x):
 		FN, C, FH, FW = self.params['W1'].shape
 		N, C, H, W = x.shape
@@ -138,6 +161,7 @@ class Conv:
 		
 		self.grad['b1'] = np.sum(dout, axis=0)
 		self.grad['W1'] = np.dot(self.col.T, dout)
+		self.col = None
 		self.grad['W1'] = self.grad['W1'].transpose(1, 0).reshape(FN, C, FH, FW)
 		
 		dcol = np.dot(dout, self.params['W1'].reshape(FN, -1))
@@ -150,18 +174,19 @@ class Conv:
 		for key, val in self.params.items():
 			params[key] = val
 	
-		with open('./weight/Conv_W_'+name, 'wb') as f:
+		with open('./weight/new/Conv_W_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
 	def load(self, name="Conv_W"):
-		with open('./weight/Conv_W_'+name, 'rb') as f:
+		with open('./weight/new/Conv_W_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			try:
-				self.params[key] = np.asarray(val)
-			except:
-				self.params[key] = cp.asnumpy(val)
+			if val.shape == self.params[key].shape: 
+				try:
+					self.params[key] = np.asarray(val)
+				except:
+					self.params[key] = cp.asnumpy(val)
 
 
 class DeConv:
@@ -196,7 +221,22 @@ class DeConv:
 		self.x = None   
 		self.col = None
 		self.col_W = None
-			
+
+	def process(self, x):
+		FN, C, FH, FW = self.params['W1'].shape
+		N, B, H, W = x.shape
+		
+		out_h = FH + int((H - 1) * self.stride)
+		out_w = FW + int((W - 1) * self.stride)
+		
+		col = x.transpose(0,2,3,1).reshape(-1,FN)
+		col_W = self.params['W1'].reshape(FN, -1)
+		out = np.dot(col, col_W)
+		out = self.AF.process(out)
+		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0)
+
+		return out
+	
 	def forward(self, x):
 		FN, C, FH, FW = self.params['W1'].shape
 		N, B, H, W = x.shape
@@ -236,18 +276,19 @@ class DeConv:
 		for key, val in self.params.items():
 			params[key] = val
 	
-		with open('./weight/DeConv_W_'+name, 'wb') as f:
+		with open('./weight/new/DeConv_W_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
 	def load(self, name="DeConv_W"):
-		with open('./weight/DeConv_W_'+name, 'rb') as f:
+		with open('./weight/new/DeConv_W_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			try:
-				self.params[key] = np.asarray(val)
-			except:
-				self.params[key] = cp.asnumpy(val)
+			if val.shape == self.params[key].shape: 
+				try:
+					self.params[key] = np.asarray(val)
+				except:
+					self.params[key] = cp.asnumpy(val)
 
 
 class Pool:
@@ -276,6 +317,20 @@ class Pool:
 		#data for backward
 		self.x = None
 		self.arg_max = None
+	
+	def process(self, x):
+		N, C, H, W = x.shape
+		
+		out_h = int(1 + (H+self.pad*2 - self.pool_h) / self.stride)
+		out_w = int(1 + (W+self.pad*2 - self.pool_w) / self.stride)
+		
+		col = im2col(x, self.pool_h, self.pool_w, self.stride, self.pad)
+		col = col.reshape(-1, self.pool_h*self.pool_w)
+		arg_max = np.argmax(col, axis=1)								#Choose the highest value
+		out = np.max(col, axis=1)
+		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)		#Colume reshape to image
+
+		return out
 	
 	def forward(self, x):
 		N, C, H, W = x.shape
@@ -335,6 +390,19 @@ class PoolAvg:
 		self.x_shape = None
 		self.arg_max = None
 	
+	def process(self, x):
+		N, C, H, W = x.shape
+		
+		out_h = int(1 + (H - self.pool_h) / self.stride)
+		out_w = int(1 + (W - self.pool_w) / self.stride)
+		
+		col = im2col(x, self.pool_h, self.pool_w, self.stride, self.pad)
+		col = col.reshape(-1, self.pool_h*self.pool_w)
+		out = np.average(col, axis=1)									#caculate the average value
+		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)
+		
+		return out
+	
 	def forward(self, x):
 		N, C, H, W = x.shape
 		
@@ -376,7 +444,11 @@ class Flatten:
 		
 		self.size = 0
 		self.flops = 0
+	
+	def process(self,x):
 		
+		return x.reshape((x.shape[0],-1))
+	
 	def forward(self,x):
 		self.in_size=x.shape
 		
@@ -403,7 +475,11 @@ class BFlatten:
 		
 		self.size = 0
 		self.flops = 0
-		
+	
+	def process(self,x):
+
+		return x.reshape((x.shape[0],self.out_size[0],self.out_size[1],self.out_size[2]))
+	
 	def forward(self,x):
 		self.in_size=x.shape
 
@@ -452,7 +528,17 @@ class BatchNorm:
 		self.shapeOut = None
 		self.size = 2
 		self.flops = 0
+	
+	def process(self, x):
+		input_shape = x.shape
+		if x.ndim != 2:
+			N, C, H, W = x.shape
+			x = x.reshape(N, -1)
+
+		out = self.__forward(x, False)
 		
+		return out.reshape(*input_shape)
+	
 	def forward(self, x, train_flg=True):
 		self.input_shape = x.shape
 		self.train_flg = train_flg
@@ -530,11 +616,11 @@ class BatchNorm:
 		for key, val in self.params.items():
 			params[key] = val
 	
-		with open('./weight/Batch_Norm_'+name, 'wb') as f:
+		with open('./weight/new/Batch_Norm_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
 	def load(self, name="Batch_Norm"):
-		with open('./weight/Batch_Norm_'+name, 'rb') as f:
+		with open('./weight/new/Batch_Norm_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
@@ -554,7 +640,7 @@ class Dropout:
 		self.shapeOut = None
 		self.size = 0
 		self.flops = 0
-		
+	
 	def forward(self, x, train_flg=True):
 		if train_flg:
 			self.mask = np.random.rand(*x.shape) > self.dropout_ratio
@@ -677,6 +763,26 @@ class ResLayer:
 		self.layers.pop()
 		
 		return init
+	
+	def process(self,x):
+		out = x
+		for i in self.layers:
+			out = i.process(out)
+		
+		if self.use_conv:
+			if self.use_pool:
+				temp = self.Conv.process(x)
+				out2 = self.pool.process(temp)
+			else:
+				out2 = self.Conv.process(x)
+		
+		else:
+			if self.use_pool:
+				out2 = self.pool.process(x)
+			else:
+				pass
+		
+		return out+out2
 	
 	def forward(self,x):
 		out = x
@@ -867,6 +973,26 @@ class ResLayerV2:
 
 		return init
 	
+	def process(self,x):
+		out = x
+		for i in self.layers:
+			out = i.process(out)
+		
+		if self.use_conv:
+			if self.use_pool:
+				temp = self.Conv.process(x)
+				out2 = self.pool.process(temp)
+			else:
+				out2 = self.Conv.process(x)
+		
+		else:
+			if self.use_pool:
+				out2 = self.pool.process(x)
+			else:
+				pass
+		
+		return out+out2
+	
 	def forward(self,x):
 		out = x
 		for i in self.layers:
@@ -883,7 +1009,7 @@ class ResLayerV2:
 			if self.use_pool:
 				out2 = self.pool.forward(x)
 			else:
-				pass
+				out2 = x
 		
 		return out+out2
 	
@@ -906,7 +1032,7 @@ class ResLayerV2:
 			if self.use_pool:
 				dx2 = self.pool.backward(dout)
 			else:
-				pass
+				dx2 = dout
 			
 		return dx+dx2
 	
@@ -1046,11 +1172,11 @@ class TimeDense:
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
-		with open('./weight/TimeDense_'+name, 'wb') as f:
+		with open('./weight/new/TimeDense_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
 	def load(self, name):
-		with open('./weight/TimeDense_'+name, 'rb') as f:
+		with open('./weight/new/TimeDense_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
@@ -1221,11 +1347,11 @@ class TimeLSTM:
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
-		with open('./weight/TimeLSTM_'+name, 'wb') as f:
+		with open('./weight/new/TimeLSTM_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
 	def load(self, name):
-		with open('./weight/TimeLSTM_'+name, 'rb') as f:
+		with open('./weight/new/TimeLSTM_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
@@ -1391,11 +1517,11 @@ class TimeGRU:
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
-		with open('./weight/TimeGRU_'+name, 'wb') as f:
+		with open('./weight/new/TimeGRU_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
 	def load(self, name):
-		with open('./weight/TimeGRU_'+name, 'rb') as f:
+		with open('./weight/new/TimeGRU_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
@@ -1429,6 +1555,12 @@ class SoftmaxWithLoss:
 		self.size = 0
 		self.flops = 0
 		
+		
+	def process(self, x):
+		y = softmax(x)
+
+		return y
+		
 	def forward(self, x, t):
 		self.t = t
 		self.y = softmax(x)
@@ -1437,11 +1569,6 @@ class SoftmaxWithLoss:
 		loss = self.loss
 		
 		return loss
-		
-	def forward_without_loss(self, x):
-		y = softmax(x)
-
-		return y
 	
 	def backward(self, dout=1):
 		batch_size = self.t.shape[0]

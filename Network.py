@@ -7,8 +7,15 @@ from optimizer import *
 
 #native(or usual)
 from setting import np
-import sys
+import sys,os
 import numpy
+
+path = "./weight"
+if not os.path.isdir(path):
+	os.mkdir(path)
+path = "./weight/new"
+if not os.path.isdir(path):
+	os.mkdir(path)
 
 class Net:
 	
@@ -128,11 +135,8 @@ class Net:
 	def process(self,input):
 		input = np.asarray(input)
 		for i in range(self.layers):
-			if self.network[i].name != 'Softmax':
-				if self.network[i].name != 'Dropout':
-					input = self.network[i].forward(input)
-			else:
-				input = self.network[i].forward_without_loss(input)
+			if self.network[i].name != 'DropOut':
+				input = self.network[i].process(input)
 
 		return input
 		
@@ -211,10 +215,10 @@ class Net:
 		return error
 	
 	#caculate the accuracy of the net
-	def accuracy(self, x, t):
+	def accuracy(self, x, t, batch_size = 100):
 		ac = 0									#amount of correct answer
-		for i in range(x.shape[0]//10):			#process 10 datas in a time
-			batch = numpy.arange(i*10,10+i*10)	#choose the data in order
+		for i in range(x.shape[0]//batch_size):			#process 10 datas in a time
+			batch = numpy.arange(i*batch_size, batch_size+i*batch_size)	#choose the data in order
 			
 			x_batch = np.asarray(x[batch])
 			t_batch = np.asarray(t[batch])

@@ -14,7 +14,11 @@ class ID:
 	'''
 	def __init__(self):
 		self.name='ID'
-
+	
+	def process(self, x):
+		
+		return x
+	
 	def forward(self, x):
 		
 		return x
@@ -31,18 +35,25 @@ class Relu:
 	'''
 	
 	def __init__(self):
-		self.mask = None #mask for x<=0
+		self.mask = None 		#mask for x<=0
 		self.name='Relu'
+	
+	def process(self, x):
+		mask = (x <= 0)
+		out = x.copy() 
+		out[mask] = 0 			#if x<=0 →→ x=0
 
+		return out
+	
 	def forward(self, x):
 		self.mask = (x <= 0)
 		out = x.copy() 
-		out[self.mask] = 0 #if x<=0 →→ x=0
+		out[self.mask] = 0 		#if x<=0 →→ x=0
 
 		return out
 	
 	def backward(self, dout):
-		dout[self.mask] = 0 #if outx=0 dx=0
+		dout[self.mask] = 0 	#if outx=0 dx=0
 		dx = dout
 
 		return dx
@@ -55,18 +66,25 @@ class Leaky:
 	'''
 	
 	def __init__(self):
-		self.mask = None #mask for x<=0
+		self.mask = None 			#mask for x<=0
 		self.name='LReLU'
+	
+	def process(self, x):
+		mask = (x <= 0)
+		out = x.copy() 
+		out[mask] *= 0.01 			#if x<=0 →→ x=a*x
 
+		return out
+	
 	def forward(self, x):
 		self.mask = (x <= 0)
 		out = x.copy() 
-		out[self.mask] *= 0.01 #if x<=0 →→ x=a*x
+		out[self.mask] *= 0.01 		#if x<=0 →→ x=a*x
 
 		return out
 	
 	def backward(self, dout):
-		dout[self.mask] *= 0.01 #if outx=0 dx=a*dx
+		dout[self.mask] *= 0.01 	#if outx=0 dx=a*dx
 		dx = dout
 
 		return dx
@@ -82,20 +100,29 @@ class Elu:
 	'''
 	
 	def __init__(self):
-		self.mask = None	#mask for x<=0
-		self.out = None		#Store the output(for backpropagation)
+		self.mask = None											#mask for x<=0
+		self.out = None												#Store the output(for backpropagation)
 		self.name='Elu'
+	
+	def process(self, x):
+		mask = (x <= 0)	
+		out = x.copy()
+		out[mask] = exp(out[mask])-1							#if x<0→→out = e^x-1
 		
+		return out
+	
 	def forward(self, x):
 		self.mask = (x <= 0)	
 		out = x.copy()
-		out[self.mask] = exp(out[self.mask])-1	#if x<0→→out = e^x-1
+		out[self.mask] = exp(out[self.mask])-1						#if x<0→→out = e^x-1
 		self.out = out
 		
 		return out
 	
 	def backward(self, dout):
 		dout[self.mask] = dout[self.mask]*(self.out[self.mask]+1)	#f'(x)=f(x)+1
+		self.mask = None
+		self.out = None
 		dx = dout
 
 		return dx
@@ -114,7 +141,12 @@ class GELU:
 	def __init__(self):
 		self.name='GELU'
 		self.In = None
+	
+	def process(self,x):
+		out = gelu_erf(x)
 		
+		return out
+	
 	def forward(self,x):
 		self.In = x
 		out = gelu_erf(x)
@@ -123,6 +155,7 @@ class GELU:
 		
 	def backward(self,dout):
 		dx = dout*gelu_erf_grad(self.In)
+		self.In = None
 		
 		return dx
 
@@ -138,7 +171,14 @@ class ISRLU:
 		self.In = None
 		self.mask = None
 		self.a = a
+	
+	def process(self, x):
+		mask = (x<=0)
+		out = x.copy()
+		out[mask] = isru(out[mask],self.a)
 		
+		return out
+	
 	def forward(self, x):
 		self.mask = (x<=0)
 		self.In = x
@@ -160,14 +200,17 @@ class ISRU:
 	INVERSE SQUARE ROOT UNIT
 	'''
 	
-	def __init__(self,a =1):
+	def __init__(self, a = 1):
 		self.name='ISRU'
 		self.In = None
-		self.mask = None
 		self.a = a
+	
+	def process(self, x):
+		out = isru(x,self.a)
 		
+		return out
+	
 	def forward(self, x):
-		self.mask = (x<=0)
 		self.In = x
 		out = isru(x,self.a)
 		
@@ -191,6 +234,11 @@ class Sigmoid:
 		self.flops = 0
 		self.size = 0
 	
+	def process(self, x):
+		out = sigmoid(x)
+	
+		return out
+	
 	def forward(self, x):
 		out = sigmoid(x)							#See functions.py
 		self.out = out
@@ -213,6 +261,11 @@ class Softplus:
 		self.name= 'Softplus'
 		self.In = None						#Store the input(for backpropagation)
 	
+	def process(self, x):
+		out = softplus(x)					#see functions.py
+	
+		return out
+	
 	def forward(self, x):
 		self.In = x
 		out = softplus(x)					#see functions.py
@@ -234,7 +287,12 @@ class Softsign:
 	def __init__(self):
 		self.In = None
 		self.name='Softsign'
+	
+	def process(self, x):
+		out = softsign(x)
 		
+		return out
+	
 	def forward(self, x):
 		self.In = x
 		out = softsign(self.In)
@@ -256,7 +314,12 @@ class Softclip:
 	def __init__(self):
 		self.In = None
 		self.name='Softclip'
+	
+	def process(self, x):
+		out = softclip(x)
 		
+		return out
+	
 	def forward(self, x):
 		self.In = x
 		out = softclip(self.In)
@@ -282,7 +345,21 @@ class SQNL:
 		self.mask3 = None 					#mask for -2<=x<0
 		self.mask4 = None 					#mask for x<-2
 		self.IN = None 
+	
+	def process(self, x):
+		mask1 = (2<=x) 						#mask for 2<x
+		mask2 = (0<=x)						#mask for 0<=x<=2
+		mask3 = (x<0) 						#mask for -2<=x<0
+		mask4 = (x<-2) 						#mask for x<-2
 		
+		out = x.copy()
+		out[mask2]=out[mask2]-((out[mask2]**2)/4)
+		out[mask1]=1
+		out[mask3]=out[mask3]+((out[mask3]**2)/4)
+		out[mask4]=-1
+		
+		return out
+	
 	def forward(self, x):
 		self.IN = x
 		self.mask1 = (2<=x) 				#mask for 2<x
@@ -317,6 +394,11 @@ class Tanh:
 	def __init__(self):
 		self.In = None 					#Store the input(for backpropagation)
 	
+	def process(self, x):
+		out = tanh(x)					#see functions.py
+	
+		return out
+	
 	def forward(self, x):
 		self.In = x
 		out = tanh(x)					#see functions.py
@@ -340,7 +422,12 @@ class Arctan:
 		self.name = 'ArcTan'
 		self.size = 0
 		self.flops = 0
+	
+	def process(self, x):
+		out = arctan(x)
 		
+		return out
+	
 	def forward(self, x):
 		self.In = x
 		out = arctan(x)
