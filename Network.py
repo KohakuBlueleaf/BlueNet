@@ -136,7 +136,7 @@ class Net:
 		input = np.asarray(input)
 		for i in range(self.layers):
 			if self.network[i].name != 'DropOut':
-				input = self.network[i].process(input)
+				input = self.network[i].forward(input,require_grad = False)
 
 		return input
 		

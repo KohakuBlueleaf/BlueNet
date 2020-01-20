@@ -12,6 +12,7 @@ from setting import exp
 import cupy as cp
 import sys
 
+rn = np.random.randn
 
 class Dense:
 	
@@ -41,16 +42,15 @@ class Dense:
 		#data for backward
 		self.x = None
 	
-	def process(self, x):
-		a1 = np.dot(x, self.params['W1']) + self.params['b1']
-		z1 = self.AF.process(a1)
+	def forward(self, x, require_grad=True):
+		if self.params['W1'] is None:
+			self.params['W1'] = rn(x.shape[1], self.output_size)/x.shape[1]**0.5
 		
-		return z1
-	
-	def forward(self, x):
-		self.x = x
 		a1 = np.dot(x, self.params['W1']) + self.params['b1']
 		z1 = self.AF.forward(a1)							#Activation
+		
+		if require_grad:
+			self.x = x
 		
 		return z1
 	
@@ -87,6 +87,7 @@ class Dense:
 			else:
 				print('weight shape error')
 
+
 class Conv:
 
 	'''
@@ -121,22 +122,11 @@ class Conv:
 		self.x_shape = None   									#shape of input
 		self.col = None											#colume of input
 	
-	def process(self, x):
-		FN, C, FH, FW = self.params['W1'].shape
-		N, C, H, W = x.shape
-		
-		out_h = 1 + int((H + 2*self.pad - FH) / self.stride)
-		out_w = 1 + int((W + 2*self.pad - FW) / self.stride)
-		
-		col = im2col(x, FH, FW, self.stride, self.pad)					#Change the image to colume
-		col_W = self.params['W1'].reshape(FN, -1).T						#Change the filters to colume
-		out = np.dot(col, col_W) + self.params['b1']
-		out = self.AF.process(out)
-		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)	#change colume to image
-
-		return out
+	def forward(self, x, require_grad=True):
+		if self.params['W1'].shape is None:
+			self.params['W1'] = rn(self.f_num,x.shape[1],self.f_size,self.f_size)
+			self.params['W1'] /= self.params['W1'].size**0.5
 	
-	def forward(self, x):
 		FN, C, FH, FW = self.params['W1'].shape
 		N, C, H, W = x.shape
 		
@@ -149,8 +139,9 @@ class Conv:
 		out = self.AF.forward(out)
 		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)	#change colume to image
 		
-		self.x_shape = x.shape
-		self.col = col
+		if require_grad:
+			self.x_shape = x.shape
+			self.col = col
 
 		return out
 	
@@ -220,26 +211,15 @@ class DeConv:
 		self.optimizer = optimizer(lr = learning_rate)
 		
 		#data for backward
-		self.x = None   
+		self.x_shape = None   
 		self.col = None
 		self.col_W = None
 
-	def process(self, x):
-		FN, C, FH, FW = self.params['W1'].shape
-		N, B, H, W = x.shape
-		
-		out_h = FH + int((H - 1) * self.stride)
-		out_w = FW + int((W - 1) * self.stride)
-		
-		col = x.transpose(0,2,3,1).reshape(-1,FN)
-		col_W = self.params['W1'].reshape(FN, -1)
-		out = np.dot(col, col_W)
-		out = self.AF.process(out)
-		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0)
-
-		return out
+	def forward(self, x, require_grad=True):
+		if self.params['W1'].shape is None:
+			self.params['W1'] = rn(x.shape[1],self.f_num,self.f_size,self.f_size)
+			self.params['W1'] /= self.params['W1'].size**0.5
 	
-	def forward(self, x):
 		FN, C, FH, FW = self.params['W1'].shape
 		N, B, H, W = x.shape
 		
@@ -252,9 +232,10 @@ class DeConv:
 		out = self.AF.forward(out)
 		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0)
 		
-		self.x_shape = x.shape
-		self.col = col
-		self.col_W = col_W
+		if require_grad:
+			self.x_shape = x.shape
+			self.col = col
+			self.col_W = col_W
 
 		return out
 	
@@ -320,21 +301,7 @@ class Pool:
 		self.x = None
 		self.arg_max = None
 	
-	def process(self, x):
-		N, C, H, W = x.shape
-		
-		out_h = int(1 + (H+self.pad*2 - self.pool_h) / self.stride)
-		out_w = int(1 + (W+self.pad*2 - self.pool_w) / self.stride)
-		
-		col = im2col(x, self.pool_h, self.pool_w, self.stride, self.pad)
-		col = col.reshape(-1, self.pool_h*self.pool_w)
-		arg_max = np.argmax(col, axis=1)								#Choose the highest value
-		out = np.max(col, axis=1)
-		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)		#Colume reshape to image
-
-		return out
-	
-	def forward(self, x):
+	def forward(self, x, require_grad = True):
 		N, C, H, W = x.shape
 		
 		out_h = int(1 + (H+self.pad*2 - self.pool_h) / self.stride)
@@ -346,8 +313,9 @@ class Pool:
 		out = np.max(col, axis=1)
 		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)		#Colume reshape to image
 		
-		self.x = x
-		self.arg_max = arg_max
+		if require_grad:
+			self.x = x
+			self.arg_max = arg_max
 
 		return out
 	
@@ -391,8 +359,8 @@ class PoolAvg:
 		#data for backward
 		self.x_shape = None
 		self.arg_max = None
-	
-	def process(self, x):
+
+	def forward(self, x, require_grad=True):
 		N, C, H, W = x.shape
 		
 		out_h = int(1 + (H - self.pool_h) / self.stride)
@@ -403,20 +371,8 @@ class PoolAvg:
 		out = np.average(col, axis=1)									#caculate the average value
 		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)
 		
-		return out
-	
-	def forward(self, x):
-		N, C, H, W = x.shape
-		
-		out_h = int(1 + (H - self.pool_h) / self.stride)
-		out_w = int(1 + (W - self.pool_w) / self.stride)
-		
-		col = im2col(x, self.pool_h, self.pool_w, self.stride, self.pad)
-		col = col.reshape(-1, self.pool_h*self.pool_w)
-		out = np.average(col, axis=1)									#caculate the average value
-		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)
-		
-		self.x_shape = x.shape
+		if require_grad:
+			self.x_shape = x.shape
 		
 		return out
 
@@ -446,12 +402,8 @@ class Flatten:
 		
 		self.size = 0
 		self.flops = 0
-	
-	def process(self,x):
 		
-		return x.reshape((x.shape[0],-1))
-	
-	def forward(self,x):
+	def forward(self,x,require_grad=True):
 		self.in_size=x.shape
 		
 		return x.reshape((x.shape[0],-1))
@@ -477,12 +429,8 @@ class BFlatten:
 		
 		self.size = 0
 		self.flops = 0
-	
-	def process(self,x):
-
-		return x.reshape((x.shape[0],self.out_size[0],self.out_size[1],self.out_size[2]))
-	
-	def forward(self,x):
+		
+	def forward(self,x,require_grad=True):
 		self.in_size=x.shape
 
 		return x.reshape((x.shape[0],self.out_size[0],self.out_size[1],self.out_size[2]))
@@ -531,25 +479,14 @@ class BatchNorm:
 		self.size = 2
 		self.flops = 0
 	
-	def process(self, x, train_flg=False):
+	def forward(self, x, require_grad=True):
 		self.input_shape = x.shape
-		self.train_flg = train_flg
+		self.train_flg = require_grad
 		if x.ndim != 2:
 			N, C, H, W = x.shape
 			x = x.reshape(N, -1)
 
-		out = self.__forward(x, train_flg)
-		
-		return out.reshape(*self.input_shape)
-	
-	def forward(self, x, train_flg=True):
-		self.input_shape = x.shape
-		self.train_flg = train_flg
-		if x.ndim != 2:
-			N, C, H, W = x.shape
-			x = x.reshape(N, -1)
-
-		out = self.__forward(x, train_flg)
+		out = self.__forward(x, require_grad)
 		
 		return out.reshape(*self.input_shape)
 			
@@ -641,8 +578,8 @@ class Dropout:
 		self.size = 0
 		self.flops = 0
 	
-	def forward(self, x, train_flg=True):
-		if train_flg:
+	def forward(self, x, require_grad=True):
+		if require_grad:
 			self.mask = np.random.rand(*x.shape) > self.dropout_ratio
 			
 			return x * self.mask
@@ -687,7 +624,7 @@ class ResLayer:
 				FN, C, S = self.layer[i].f_num, init.shape[1], self.layer[i].f_size
 				
 				#set the params
-				self.layer[i].params['W1'] = init_std * np.random.randn(FN, C, S, S)
+				self.layer[i].params['W1'] = init_std * rn(FN, C, S, S)
 				self.layer[i].params['b1'] *= init_std
 				out = self.layer[i].forward(init)
 				
@@ -706,7 +643,7 @@ class ResLayer:
 				
 				#set the params
 				out_size =  self.layer[i].output_size
-				self.layer[i].params['W1'] = init_std * np.random.randn(init.size, out_size)
+				self.layer[i].params['W1'] = init_std * rn(init.size, out_size)
 				self.layer[i].params['b1'] *= init_std
 				
 				#Caculate the FLOPs & Amount of params
@@ -724,7 +661,7 @@ class ResLayer:
 				
 				#set the params
 				self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
-				self.Conv.params['W1'] = init_std * np.random.randn(FN,C,1,1)
+				self.Conv.params['W1'] = init_std * rn(FN,C,1,1)
 				self.Conv.params['b1'] *= init_std
 				
 				#set Activation Functions & optimizer
@@ -764,41 +701,21 @@ class ResLayer:
 		
 		return init
 	
-	def process(self,x):
+	def forward(self,x,require_grad=True):
 		out = x
 		for i in self.layers:
-			out = i.process(out)
+			out = i.forward(out,require_grad)
 		
 		if self.use_conv:
 			if self.use_pool:
-				temp = self.Conv.process(x)
-				out2 = self.pool.process(temp)
+				temp = self.Conv.forward(x,require_grad)
+				out2 = self.pool.forward(temp,require_grad)
 			else:
-				out2 = self.Conv.process(x)
+				out2 = self.Conv.forward(x,require_grad)
 		
 		else:
 			if self.use_pool:
-				out2 = self.pool.process(x)
-			else:
-				pass
-		
-		return out+out2
-	
-	def forward(self,x):
-		out = x
-		for i in self.layers:
-			out = i.forward(out)
-		
-		if self.use_conv:
-			if self.use_pool:
-				temp = self.Conv.forward(x)
-				out2 = self.pool.forward(temp)
-			else:
-				out2 = self.Conv.forward(x)
-		
-		else:
-			if self.use_pool:
-				out2 = self.pool.forward(x)
+				out2 = self.pool.forward(x,require_grad)
 			else:
 				pass
 		
@@ -898,7 +815,7 @@ class ResLayerV2:
 				FN, C, S = self.layer[i].f_num, init.shape[1], self.layer[i].f_size
 				
 				#set the params
-				self.layer[i].params['W1'] = init_std * np.random.randn(FN, C, S, S)
+				self.layer[i].params['W1'] = init_std * rn(FN, C, S, S)
 				self.layer[i].params['b1'] *= init_std
 				out = self.layer[i].forward(init)
 				
@@ -917,7 +834,7 @@ class ResLayerV2:
 				
 				#set the params
 				out_size =  self.layer[i].output_size
-				self.layer[i].params['W1'] = init_std * np.random.randn(init.size, out_size)
+				self.layer[i].params['W1'] = init_std * rn(init.size, out_size)
 				self.layer[i].params['b1'] *= init_std
 				
 				#Caculate the FLOPs & Amount of params
@@ -935,7 +852,7 @@ class ResLayerV2:
 				
 				#set the params
 				self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
-				self.Conv.params['W1'] = init_std * np.random.randn(FN,C,1,1)
+				self.Conv.params['W1'] = init_std * rn(FN,C,1,1)
 				self.Conv.params['b1'] *= init_std
 				
 				#set Activation Functions & optimizer
@@ -973,41 +890,21 @@ class ResLayerV2:
 
 		return init
 	
-	def process(self,x):
+	def forward(self,x,require_grad=True):
 		out = x
 		for i in self.layers:
-			out = i.process(out)
+			out = i.forward(out,require_grad)
 		
 		if self.use_conv:
 			if self.use_pool:
-				temp = self.Conv.process(x)
-				out2 = self.pool.process(temp)
+				temp = self.Conv.forward(x,require_grad)
+				out2 = self.pool.forward(temp,require_grad)
 			else:
-				out2 = self.Conv.process(x)
+				out2 = self.Conv.forward(x,require_grad)
 		
 		else:
 			if self.use_pool:
-				out2 = self.pool.process(x)
-			else:
-				pass
-		
-		return out+out2
-	
-	def forward(self,x):
-		out = x
-		for i in self.layers:
-			out = i.forward(out)
-		
-		if self.use_conv:
-			if self.use_pool:
-				temp = self.Conv.forward(x)
-				out2 = self.pool.forward(temp)
-			else:
-				out2 = self.Conv.forward(x)
-		
-		else:
-			if self.use_pool:
-				out2 = self.pool.forward(x)
+				out2 = self.pool.forward(x,require_grad)
 			else:
 				out2 = x
 		
@@ -1546,22 +1443,19 @@ class SoftmaxWithLoss:
 	def __init__(self):
 		self.name = 'Softmax'
 		#Initialize
-		self.params = {}
 		self.shapeIn = None
 		self.shapeOut = None
 		self.loss = None
 		self.y = None 
 		self.t = None 
+		
 		self.size = 0
 		self.flops = 0
 		
+	def forward(self, x, t=None, require_grad=True):
+		if not require_grad:
+			return softmax(x)
 		
-	def process(self, x):
-		y = softmax(x)
-
-		return y
-		
-	def forward(self, x, t):
 		self.t = t
 		self.y = softmax(x)
 		y = self.y
