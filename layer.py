@@ -20,7 +20,7 @@ class Dense:
 	Full Conected Layer
 	'''
 	
-	def __init__(self, output_size, AF=Sigmoid,learning_rate=0.01,optimizer=Adam):
+	def __init__(self, output_size,learning_rate=0.01,optimizer=Adam):
 		self.name = 'Dense'
 		#initialize
 		self.output_size = output_size
@@ -33,8 +33,7 @@ class Dense:
 		self.params['b1'] = np.ones(output_size)			#Bias
 		self.grad = {}										#Gradient of weight and bias
 		
-		#other
-		self.AF = AF()										#activation function
+		#other()										#activation function
 		self.optimizer = optimizer(lr = learning_rate)		#Optimizer
 		self.size = None									#amount of params(Weight+bias)
 		self.flops = None									#FLOPs of this layer
@@ -42,22 +41,19 @@ class Dense:
 		#data for backward
 		self.x = None
 	
-	def forward(self, x, require_grad=True):
+	def forward(self, x):
 		if self.params['W1'] is None:
 			self.params['W1'] = rn(x.shape[1], self.output_size)/x.shape[1]**0.5
 		
 		a1 = np.dot(x, self.params['W1']) + self.params['b1']
-		z1 = self.AF.forward(a1)							#Activation
 		
-		if require_grad:
-			self.x = x
+		self.x = x
 		
-		return z1
+		return a1
 	
 	def backward(self,error):
 		
-		dy = error	
-		da1 = self.AF.backward(dy)							#Backpropagation for Activation Function
+		da1 = error	
 		dx = np.dot(da1, self.params['W1'].T)				#BP for input
 		
 		self.grad['W1'] = np.dot(self.x.T,da1)				#BP for weight
@@ -94,7 +90,7 @@ class Conv:
 	Convolution Layer
 	'''
 	
-	def __init__(self,conv_param,init_std=1,AF=Elu(),rate=0.01,optimizer=Adam):
+	def __init__(self,conv_param,init_std=1,rate=0.01,optimizer=Adam):
 		self.name = 'ConvNet'
 		#Initialize
 		self.shapeIn = None
@@ -112,8 +108,7 @@ class Conv:
 		self.stride = self.f_stride								#step(stride)
 		self.pad = self.f_pad									#padding
 		
-		#other
-		self.AF = AF											#set the function
+		#other											#set the function
 		self.optimizer = optimizer(lr = rate)					#set the optimizer
 		self.size = 0											#Amonut of parameters
 		self.flops = 0											#Computation
@@ -122,7 +117,7 @@ class Conv:
 		self.x_shape = None   									#shape of input
 		self.col = None											#colume of input
 	
-	def forward(self, x, require_grad=True):
+	def forward(self, x):
 		if self.params['W1'].shape is None:
 			self.params['W1'] = rn(self.f_num,x.shape[1],self.f_size,self.f_size)
 			self.params['W1'] /= self.params['W1'].size**0.5
@@ -136,12 +131,10 @@ class Conv:
 		col = im2col(x, FH, FW, self.stride, self.pad)					#Change the image to colume
 		col_W = self.params['W1'].reshape(FN, -1).T						#Change the filters to colume
 		out = np.dot(col, col_W) + self.params['b1']
-		out = self.AF.forward(out)
 		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)	#change colume to image
 		
-		if require_grad:
-			self.x_shape = x.shape
-			self.col = col
+		self.x_shape = x.shape
+		self.col = col
 
 		return out
 	
@@ -149,8 +142,6 @@ class Conv:
 		FN, C, FH, FW = self.params['W1'].shape
 		
 		dout = dout.transpose(0,2,3,1).reshape(-1, FN)					#change gradient to colume
-		dout = self.AF.backward(dout)
-		
 		self.grad['b1'] = np.sum(dout, axis=0)
 		self.grad['W1'] = np.dot(self.col.T, dout)
 		self.col = None
@@ -189,7 +180,7 @@ class DeConv:
 	The forward of DeConv is same to Convolution's backward and backward is same to conv's forward too.
 	'''
 	
-	def __init__(self,conv_param,init_std=1,AF=Elu(),learning_rate=0.01,optimizer=Adam):
+	def __init__(self,conv_param,init_std=1,learning_rate=0.01,optimizer=Adam):
 		self.name = 'DeConvNet'
 		#Initialize
 		self.shapeIn = None
@@ -207,7 +198,6 @@ class DeConv:
 		self.stride = self.f_stride
 		
 		#Activation function & optimizer
-		self.AF = AF
 		self.optimizer = optimizer(lr = learning_rate)
 		
 		#data for backward
@@ -215,7 +205,7 @@ class DeConv:
 		self.col = None
 		self.col_W = None
 
-	def forward(self, x, require_grad=True):
+	def forward(self, x):
 		if self.params['W1'].shape is None:
 			self.params['W1'] = rn(x.shape[1],self.f_num,self.f_size,self.f_size)
 			self.params['W1'] /= self.params['W1'].size**0.5
@@ -232,10 +222,8 @@ class DeConv:
 		out = self.AF.forward(out)
 		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0)
 		
-		if require_grad:
-			self.x_shape = x.shape
-			self.col = col
-			self.col_W = col_W
+		self.x_shape = x.shape
+		self.col = col
 
 		return out
 	
@@ -249,7 +237,7 @@ class DeConv:
 		self.grad['W1'] = np.dot(self.col.T, dout)
 		self.grad['W1'] = self.grad['W1'].transpose(1, 0).reshape(FN, C, FH, FW)
 		
-		dcol = np.dot(dout, self.col_W.T)
+		dcol = np.dot(dout, self.params['W1'].reshape(FN, -1).T)
 		dx = dcol.reshape((self.x_shape[0],self.x_shape[2],self.x_shape[3],-1)).transpose(0,3,1,2)
 
 		return dx
@@ -313,9 +301,8 @@ class Pool:
 		out = np.max(col, axis=1)
 		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)		#Colume reshape to image
 		
-		if require_grad:
-			self.x = x
-			self.arg_max = arg_max
+		self.x = x
+		self.arg_max = arg_max
 
 		return out
 	
@@ -360,7 +347,7 @@ class PoolAvg:
 		self.x_shape = None
 		self.arg_max = None
 
-	def forward(self, x, require_grad=True):
+	def forward(self, x):
 		N, C, H, W = x.shape
 		
 		out_h = int(1 + (H - self.pool_h) / self.stride)
@@ -371,8 +358,7 @@ class PoolAvg:
 		out = np.average(col, axis=1)									#caculate the average value
 		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)
 		
-		if require_grad:
-			self.x_shape = x.shape
+		self.x_shape = x.shape
 		
 		return out
 
@@ -458,8 +444,8 @@ class BatchNorm:
 		self.input_shape = None # Conv is 4d(N C H W), FCN is 2d(N D)
 		
 		#Traning data
-		self.running_mean = running_mean
-		self.running_var = running_var  
+		self.params['running_mean'] = running_mean
+		self.params['running_var'] = running_var  
 		
 		# backward data
 		self.batch_size = None
@@ -479,23 +465,22 @@ class BatchNorm:
 		self.size = 2
 		self.flops = 0
 	
-	def forward(self, x, require_grad=True):
+	def forward(self, x, Train_flag=True):
 		self.input_shape = x.shape
-		self.train_flg = require_grad
 		if x.ndim != 2:
 			N, C, H, W = x.shape
 			x = x.reshape(N, -1)
 
-		out = self.__forward(x, require_grad)
+		out = self.__forward(x, Train_flag)
 		
 		return out.reshape(*self.input_shape)
 			
 	def __forward(self, x, train_flg):
 		gamma, beta = self.params['gamma'],self.params['beta']
-		if self.running_mean is None:
+		if self.params['running_mean'] is None:
 			N, D = x.shape
-			self.running_mean = np.zeros(D)
-			self.running_var = np.zeros(D)
+			self.params['running_mean'] = np.zeros(D)
+			self.params['running_var'] = np.zeros(D)
 
 		if train_flg:			#If you want to train the BatchNormalization layer, train_flg must be True
 			mu = x.mean(axis=0)
@@ -508,12 +493,12 @@ class BatchNorm:
 			self.xc = xc
 			self.xn = xn
 			self.std = std
-			self.running_mean = self.momentum * self.running_mean + (1-self.momentum) * mu
-			self.running_var = self.momentum * self.running_var + (1-self.momentum) * var			
+			self.params['running_mean'] = self.momentum * self.params['running_mean'] + (1-self.momentum) * mu
+			self.params['running_var'] = self.momentum * self.params['running_var'] + (1-self.momentum) * var			
 		
 		else:
-			xc = x - self.running_mean
-			xn = xc / ((np.sqrt(self.running_var + 10e-7)))
+			xc = x - self.params['running_mean']
+			xn = xc / ((np.sqrt(self.params['running_var'] + 10e-7)))
 			
 		out = gamma * xn + beta 
 		
@@ -678,11 +663,11 @@ class ResLayer:
 					
 			if init.shape[2] != data.shape[2]:
 				if init.shape[2] == data.shape[2]//2:
-					self.pool = Pool(2,2,2)
+					self.pool = PoolAvg(2,2,2)
 					self.use_pool = True
 				
 				elif init.shape[2] == (data.shape[2]//2)+1:
-					self.pool = Pool(2,2,2,1)
+					self.pool = PoolAvg(2,2,2,1)
 					self.use_pool = True
 				
 				else:
@@ -869,11 +854,11 @@ class ResLayerV2:
 					
 			if init.shape[2] != data.shape[2]:
 				if init.shape[2] == data.shape[2]//2:
-					self.pool = Pool(2,2,2)
+					self.pool = PoolAvg(2,2,2)
 					self.use_pool = True
 				
 				elif init.shape[2] == (data.shape[2]//2)+1:
-					self.pool = Pool(2,2,2,1)
+					self.pool = PoolAvg(2,2,2,1)
 					self.use_pool = True
 				
 				else:
@@ -1004,6 +989,79 @@ class Embedding:
 		return None
 
 
+class TimeEmbedding:
+	
+	def __init__(self,stateful=False,AF=Elu,optimizer=Adam,rate=0.001):
+		self.name = 'TimeEmbedding'
+		#initialize
+		
+		#parameters
+		self.params={}
+		self.params['W'] = None
+		self.grad = {}
+		self.grad['W'] = None	
+		
+		#other
+		self.optimizer = optimizer(rate)
+		self.flops = 0
+		self.size = 0
+	
+	def forward(self, xs):
+		Wx = self.params['W']
+		N, T, D = xs.shape
+		H = Wx.shape[1]
+		
+		self.layers = []
+		hs = np.empty((N, T, H), dtype='f')
+		
+		for t in range(T):
+			layer = Embedding(W)
+			self.h = layer.forward(xs[:, t, :])
+			hs[:, t, :] = self.h
+			
+			self.layers.append(layer)
+			
+		return hs
+		
+	def backward(self,dhs):
+		W = self.params['W']
+		N, T, H = dhs.shape
+		D = W.shape[0]
+		
+		dxs = np.empty((N, T, D), dtype='f')
+		self.grad['W'] = np.zeros_like(W)
+		
+		for t in reversed(range(T)):
+			layer = self.layers[t]
+			dx = layer.backward(dhs[:, t, :])
+			try:
+				dxs[:, t, :] = dx
+			except:
+				print(dxs.shape)
+			for i in layer.grad:
+				self.grad[i] += layer.grad[i]
+		
+		return dxs
+
+	def save(self, name):
+		params = {}
+		for key, val in self.params.items():
+			params[key] = val
+		with open('./weight/new/TimeEmbedding_'+name, 'wb') as f:
+			pickle.dump(params, f)
+	
+	def load(self, name):
+		with open('./weight/new/TimeEmbedding_'+name, 'rb') as f:
+			params = pickle.load(f)
+		
+		for key, val in params.items():
+			if val.shape == self.params[key].shape: 
+				try:
+					self.params[key] = np.asarray(val)
+				except:
+					self.params[key] = cp.asnumpy(val)
+
+
 class TimeDense:
 	
 	def __init__(self,stateful=False,AF=Elu,optimizer=Adam,rate=0.001):
@@ -1021,7 +1079,6 @@ class TimeDense:
 		
 		#other
 		self.optimizer = optimizer(rate)
-		self.AF = AF
 		self.flops = 0
 		self.size = 0
 	
@@ -1077,10 +1134,11 @@ class TimeDense:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			try:
-				self.params[key] = np.asarray(val)
-			except:
-				self.params[key] = cp.asnumpy(val)
+			if val.shape == self.params[key].shape: 
+				try:
+					self.params[key] = np.asarray(val)
+				except:
+					self.params[key] = cp.asnumpy(val)
 	
 	
 class LSTM:
@@ -1252,10 +1310,11 @@ class TimeLSTM:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			try:
-				self.params[key] = np.asarray(val)
-			except:
-				self.params[key] = cp.asnumpy(val)
+			if val.shape == self.params[key].shape: 
+				try:
+					self.params[key] = np.asarray(val)
+				except:
+					self.params[key] = cp.asnumpy(val)
 	
 
 class GRU:
@@ -1422,17 +1481,17 @@ class TimeGRU:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			try:
-				self.params[key] = np.asarray(val)
-			except:
-				self.params[key] = cp.asnumpy(val)
+			if val.shape == self.params[key].shape: 
+				try:
+					self.params[key] = np.asarray(val)
+				except:
+					self.params[key] = cp.asnumpy(val)
 
 
 
 '''
 Other Layer
 '''
-
 
 class SoftmaxWithLoss:
 	
@@ -1452,8 +1511,8 @@ class SoftmaxWithLoss:
 		self.size = 0
 		self.flops = 0
 		
-	def forward(self, x, t=None, require_grad=True):
-		if not require_grad:
+	def forward(self, x, t=None, loss=True):
+		if not loss:
 			return softmax(x)
 		
 		self.t = t

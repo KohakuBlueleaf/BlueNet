@@ -53,7 +53,6 @@ class Net:
 				
 				#Convolution
 				if name == 'ConvNet' or name == 'DeConvNet':
-					self.network[i].AF = AF()								#set Activation Function(see Activation.py)
 					self.network[i].optimizer = optimizer(LR)				#set Optimizer(see optimizer.py)
 					
 					#Convolution
@@ -86,8 +85,7 @@ class Net:
 				elif name == 'Dense':
 					out_size = self.network[i].output_size
 					self.network[i].params['W1'] = init_std*np.random.randn(init.size, out_size)	#weight's shape is (input_size,output_size)
-					self.network[i].params['b1'] *= init_std
-					self.network[i].AF = AF()														#set Activation Function
+					self.network[i].params['b1'] *= init_std													#set Activation Function
 					self.network[i].optimizer = optimizer(LR)										#set Optimizer
 					self.network[i].flops = init.shape[1]*out_size									#caculate the FLOPs
 					self.network[i].size = init.size*out_size + out_size							#caculate the amount of parameters
@@ -122,11 +120,14 @@ class Net:
 		print("┌───────────┬───────┬──────────┬──────────────┬─────────────┐")
 		print("│   Layer   │ GFLOPs│  Params  │   Shape(In)  │  Shape(Out) │")
 		for i in self.network:
-			total += i.size
-			total_f += i.flops
-			print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
-			print("│{:^11}│{:^7.3f}│{:>10}│{:>14}│{:>13}│".format(i.name,i.flops/1000000000,i.size,str(i.shapeIn).replace(' ',''),str(i.shapeOut).replace(' ','')))
-		
+			try:
+				total += i.size
+				total_f += i.flops
+				print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
+				print("│{:^11}│{:^7.3f}│{:>10}│{:>14}│{:>13}│".format(i.name,i.flops/1000000000,i.size,str(i.shapeIn).replace(' ',''),str(i.shapeOut).replace(' ','')))
+			except AttributeError:
+				pass
+				
 		print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
 		print("│   Total   │{:^7.2f}│{:>10}│              │             │".format(total_f/1000000000,total))
 		print("└───────────┴───────┴──────────┴──────────────┴─────────────┘")	
@@ -136,7 +137,13 @@ class Net:
 		input = np.asarray(input)
 		for i in range(self.layers):
 			if self.network[i].name != 'DropOut':
-				input = self.network[i].forward(input,require_grad = False)
+				if self.network[i].name != 'Softmax':
+					if self.network[i].name == 'BatchNorm':
+						input = self.network[i].forward(input,False)
+					else:	
+						input = self.network[i].forward(input)
+				else:
+					input = self.network[i].forward(input,loss = False)
 
 		return input
 		
@@ -259,7 +266,6 @@ class Net:
 			
 			except FileNotFoundError:
 				pass
-	
 	
 	#Save the parameters
 	def save(self):

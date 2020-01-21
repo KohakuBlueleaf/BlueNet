@@ -117,7 +117,7 @@ class GELU:
 		self.name='GELU'
 		self.In = None
 	
-	def forward(self,x):
+	def forward(self,x,require_grad=True):
 		self.In = x
 		out = gelu_erf(x)
 		
@@ -316,6 +316,7 @@ class Tanh:
 	'''
 	
 	def __init__(self):
+		self.name='Tanh'
 		self.In = None 					#Store the input(for backpropagation)
 	
 	def forward(self, x):
