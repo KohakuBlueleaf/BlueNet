@@ -300,9 +300,9 @@ class SQNL:
 		return out
 	
 	def backward(self, dout):
-		dout[self.mask2] *= (1-(self.IN[self.mask])/2)
+		dout[self.mask2] *= (1-(self.IN[self.mask2])/2)
 		dout[self.mask1] = 0
-		dout[self.mask3] *= (1+(self.IN[self.mask])/2)
+		dout[self.mask3] *= (1+(self.IN[self.mask3])/2)
 		dout[self.mask4] = 0 
 		dx = dout
 

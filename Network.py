@@ -212,7 +212,7 @@ class Net:
 			loss = cross_entropy_error(y,t)		#caculate the loss
 			
 			batch_size = t.shape[0]
-			if self.t.size == self.y.size:		#if the size of y and t is the same
+			if t.size == y.size:		#if the size of y and t is the same
 				dx = (y - t) / batch_size
 			
 			else:								#if not
@@ -225,7 +225,7 @@ class Net:
 		return error
 	
 	#caculate the accuracy of the net
-	def accuracy(self, x, t, batch_size = 100):
+	def accuracy(self, x, t, batch_size = 100, print_the_result = False):
 		ac = 0									#amount of correct answer
 		for i in range(x.shape[0]//batch_size):			#process 10 datas in a time
 			batch = numpy.arange(i*batch_size, batch_size+i*batch_size)	#choose the data in order
@@ -239,6 +239,8 @@ class Net:
 			ac += np.sum(y == tt)				#save the amount of correct answer
 			
 		accuracy = ac / x.shape[0]
+		if print_the_result:
+			print(ac,'/',x.shape[0],sep='')
 		
 		return accuracy
 	

@@ -12,7 +12,9 @@ from setting import exp
 import cupy as cp
 import sys
 
+
 rn = np.random.randn
+
 
 class Dense:
 	
@@ -173,6 +175,7 @@ class Conv:
 			else:
 				print('weight shape error')
 
+
 class DeConv:
 
 	'''
@@ -219,7 +222,6 @@ class DeConv:
 		col = x.transpose(0,2,3,1).reshape(-1,FN)
 		col_W = self.params['W1'].reshape(FN, -1)
 		out = np.dot(col, col_W)
-		out = self.AF.forward(out)
 		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0)
 		
 		self.x_shape = x.shape
@@ -232,7 +234,6 @@ class DeConv:
 		N, C, H, W = dout.shape
 		
 		dout = im2col(dout, FH, FW, self.stride, 0)
-		dout = self.AF.backward(dout)
 		
 		self.grad['W1'] = np.dot(self.col.T, dout)
 		self.grad['W1'] = self.grad['W1'].transpose(1, 0).reshape(FN, C, FH, FW)
@@ -981,7 +982,7 @@ class Embedding:
 		
 		return out
 	
-	def backward(self):
+	def backward(self,dout):
 		dW, = self.grads
 		dW[...] = 0
 		np.add.at(dW, self.idx, dout)
@@ -1015,7 +1016,7 @@ class TimeEmbedding:
 		hs = np.empty((N, T, H), dtype='f')
 		
 		for t in range(T):
-			layer = Embedding(W)
+			layer = Embedding(Wx)
 			self.h = layer.forward(xs[:, t, :])
 			hs[:, t, :] = self.h
 			
@@ -1091,14 +1092,15 @@ class TimeDense:
 		hs = np.empty((N, T, H), dtype='f')
 		
 		for t in range(T):
-			layer = Dense(H,AF=self.AF)
+			layer = Dense(H)
 			layer.params['W1'] = Wx
 			layer.params['b1'] = b
 			self.h = layer.forward(xs[:, t, :])
 			hs[:, t, :] = self.h
 			
 			self.layers.append(layer)
-			
+		
+		hs = self.AF.foward(hs)
 		return hs
 		
 	def backward(self,dhs):
@@ -1110,6 +1112,8 @@ class TimeDense:
 		self.grad['W1'] = np.zeros_like(Wx)
 		self.grad['b1'] = np.zeros_like(b)
 		
+		dhs = self.AF.backward(dhs)
+
 		for t in reversed(range(T)):
 			layer = self.layers[t]
 			dx = layer.backward(dhs[:, t, :])
@@ -1492,6 +1496,7 @@ class TimeGRU:
 '''
 Other Layer
 '''
+
 
 class SoftmaxWithLoss:
 	
