@@ -1,4 +1,6 @@
 # coding: utf-8
+import sys
+sys.path.append("..") 
 import pickle
 from random import randint as rand
 import numpy as np
@@ -9,10 +11,10 @@ img_size = 784
 dataset = {}
 testset = {}
 file = {
-	'train_img':'./gzip/emnist-letters-train-images-idx3-ubyte.gz',
-	'train_label':'./gzip/emnist-letters-train-labels-idx1-ubyte.gz',
-	'test_img':'./gzip/emnist-letters-test-images-idx3-ubyte.gz',
-	'test_label':'./gzip/emnist-letters-test-labels-idx1-ubyte.gz'
+	'train_img':'database/gzip/emnist-letters-train-images-idx3-ubyte.gz',
+	'train_label':'database/gzip/emnist-letters-train-labels-idx1-ubyte.gz',
+	'test_img':'database/gzip/emnist-letters-test-images-idx3-ubyte.gz',
+	'test_label':'database/gzip/emnist-letters-test-labels-idx1-ubyte.gz'
 }
 
 def load_labels(file):
@@ -56,6 +58,15 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 	elif choose == 2:
 		data_choose = np.arange(0,len(dataset['data']),2)
 		test_choose = np.arange(0,len(testset['data']),2)
+	elif choose == 3:
+		data_choose = np.arange(0,len(dataset['data']),3)
+		test_choose = np.arange(0,len(testset['data']),3)
+	elif choose == 4:
+		data_choose = np.arange(1,len(dataset['data']+1),3)
+		test_choose = np.arange(1,len(testset['data']+1),3)
+	elif choose == 5:
+		data_choose = np.arange(2,len(dataset['data'])+2,3)
+		test_choose = np.arange(2,len(testset['data'])+2,3)
 	
 	if smooth:
 		dataset['labels'] = label_smoothing(dataset['labels'],0.1)

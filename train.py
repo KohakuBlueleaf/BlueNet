@@ -1,8 +1,9 @@
 # coding: utf-8
 
+import sys
+sys.path.append("./database") 
+
 #import Nueral Network Module
-from layer import *
-from optimizer import *
 from Network import Net
 
 #import the loader of dataset
@@ -21,7 +22,7 @@ import matplotlib.pyplot as plt
 
 
 #initialize
-(x_train,t_train),(x_test,t_test) = load_emnist(True, False, True, True, 2)#Load the database
+(x_train,t_train),(x_test,t_test) = load_emnist(True, False, True, False,3)#Load the database
 									#normalize,flatten,one_hot_label,smooth
 train_size = x_train.shape[0]
 train_loss_list = []
@@ -45,10 +46,10 @@ train_acc_list.append(train_acc)
 
 #Train
 round = int(input('Epoch:'))
-print('\n┌──────────────────────────┐')
+print('\n┌──────────────────────────┐  ')
 for j in range(round):
 	if j != 0:
-		print("│ =========================│")
+		print("│ =========================│  ")
 	
 	for i in range(iter_per_epoch):
 		batch_mask = np.random.choice(train_size, batch_size) #Random choose data
@@ -59,7 +60,7 @@ for j in range(round):
 		loss = net.train(x_batch, t_batch) 	#Train&Caculate the loss of the net
 		train_loss_list.append(loss)
 		if i%p == 0:
-			print('│ Epoch %2d  Loss:%6f  │'%(j+1,loss),end='\r',flush=True)
+			print('│ Epoch %2d  Loss:%6f  │  '%(j+1,loss),end='\r',flush=True)
 	#print('Round %d Save         '%(j+1))
 	
 	test_acc = net.accuracy(x_test, t_test, 100)		#Caculate the accuracy of the net
@@ -71,10 +72,10 @@ for j in range(round):
 		max_acc = test_acc 
 		net.save() #Save the parameters
 	
-	print("│ Epoch %2d  Test Acc:%.3f│"%(j+1,test_acc*100))
-	print("│          Train Acc:%.3f│"%(train_acc*100))
+	print("│ Epoch %2d  Test Acc:%.3f│  "%(j+1,test_acc*100))
+	print("│          Train Acc:%.3f│  "%(train_acc*100))
 
-print('└──────────────────────────┘')
+print('└──────────────────────────┘  ')
 
 #finish
 net.update()

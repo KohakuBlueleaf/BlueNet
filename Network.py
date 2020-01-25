@@ -1,9 +1,9 @@
 # coding: utf-8
 
 #Original
-from layer import *
-from functions import *
 from optimizer import *
+from Activation import *
+from functions import *
 
 #native(or usual)
 from setting import np
@@ -22,7 +22,7 @@ rn = np.random.randn
 
 class Net:
 	
-	def __init__(self,network,init_std=0.01,init_mode = 'normal',AF=Elu,LR=0.001,optimizer=Adam,data_shape = (3,224,224)):
+	def __init__(self,network,init_std=0.01,init_mode = 'normal',AF=Elu,rate=0.001,optimizer=Adam,data_shape = (3,224,224)):
 		self.net = []
 		for i in network:
 			self.net.append(i)
@@ -56,8 +56,9 @@ class Net:
 				
 				#Convolution
 				if name == 'ConvNet' or name == 'DeConvNet':
-					self.net[i].optimizer = optimizer(LR)				#set Optimizer(see optimizer.py)
-					
+					self.net[i].optimizer = optimizer(rate)				#set Optimizer(see optimizer.py)
+					self.net[i].AF = AF()
+
 					#Convolution
 					if name == 'ConvNet':
 						FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
@@ -89,17 +90,18 @@ class Net:
 					out_size = self.net[i].output_size
 					self.net[i].params['W1'] = init_std*rn(init.size, out_size)					#weight's shape is (input_size,output_size)
 					self.net[i].params['b1'] *= init_std										
-					self.net[i].optimizer = optimizer(LR)										#set Optimizer
+					self.net[i].optimizer = optimizer(rate)										#set Optimizer
+					self.net[i].AF = AF()
 					self.net[i].flops = init.shape[1]*out_size									#caculate the FLOPs
 					self.net[i].size = init.size*out_size + out_size							#caculate the amount of parameters
 				
 				#ResLayer(Block of ResNet)
 				elif name == 'ResLayer':
 					self.net[i].AF = AF															#set Activation Function
-					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer,LR)			#see layer.py(In fact the function is same as here)
+					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer(rate))		#see layer.py(In fact the function is same as here)
 				
 				elif name == 'BatchNorm':
-					self.net[i].optimizer = optimizer(LR)
+					self.net[i].optimizer = optimizer(rate)
 				
 				else:
 					pass
@@ -185,8 +187,7 @@ class Net:
 			else:
 				try:
 					self.net[i].optimizer.update(self.net[i].params,self.net[i].grad)
-				
-				#if the layer doesn't have hte optimizer, skip it.
+				#if the layer doesn't have the optimizer, skip it.
 				except AttributeError:
 					pass
 		
@@ -222,7 +223,7 @@ class Net:
 			self.back_train(dx)
 		
 		#回傳loss
-		return error
+		return loss
 	
 	#caculate the accuracy of the net
 	def accuracy(self, x, t, batch_size = 100, print_the_result = False):

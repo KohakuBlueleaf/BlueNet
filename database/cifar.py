@@ -1,4 +1,6 @@
 # coding: utf-8
+import sys
+sys.path.append("..") 
 import pickle
 from random import randint as rand
 from functions import _change_one_hot_label,label_smoothing

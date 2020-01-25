@@ -22,7 +22,7 @@ class Dense:
 	Full Conected Layer
 	'''
 	
-	def __init__(self, output_size,learning_rate=0.01,optimizer=Adam):
+	def __init__(self, output_size,AF=Elu,learning_rate=0.01,optimizer=Adam):
 		self.name = 'Dense'
 		#initialize
 		self.output_size = output_size
@@ -35,11 +35,13 @@ class Dense:
 		self.params['b1'] = np.ones(output_size)			#Bias
 		self.grad = {}										#Gradient of weight and bias
 		
-		#other()										#activation function
+		#other()
+		self.AF = AF()										#activation function
 		self.optimizer = optimizer(lr = learning_rate)		#Optimizer
 		self.size = None									#amount of params(Weight+bias)
 		self.flops = None									#FLOPs of this layer
 		
+
 		#data for backward
 		self.x = None
 	
@@ -47,20 +49,21 @@ class Dense:
 		if self.params['W1'] is None:
 			self.params['W1'] = rn(x.shape[1], self.output_size)/x.shape[1]**0.5
 		
-		a1 = np.dot(x, self.params['W1']) + self.params['b1']
+		out = np.dot(x, self.params['W1']) + self.params['b1']
+		out = self.AF.forward(out)
 		
 		self.x = x
 		
-		return a1
+		return out
 	
 	def backward(self,error):
 		
-		da1 = error	
-		dx = np.dot(da1, self.params['W1'].T)				#BP for input
+		dout = self.AF.backward(error)	
+		dx = np.dot(dout, self.params['W1'].T)				#BP for input
 		
-		self.grad['W1'] = np.dot(self.x.T,da1)				#BP for weight
+		self.grad['W1'] = np.dot(self.x.T,dout)				#BP for weight
 		self.x = None
-		self.grad['b1'] = np.sum(da1, axis=0)				#BP for bias
+		self.grad['b1'] = np.sum(dout, axis=0)				#BP for bias
 
 		return dx
 	
@@ -92,7 +95,7 @@ class Conv:
 	Convolution Layer
 	'''
 	
-	def __init__(self,conv_param,init_std=1,rate=0.01,optimizer=Adam):
+	def __init__(self,conv_param,AF=Elu,init_std=1,rate=0.01,optimizer=Adam):
 		self.name = 'ConvNet'
 		#Initialize
 		self.shapeIn = None
@@ -110,7 +113,8 @@ class Conv:
 		self.stride = self.f_stride								#step(stride)
 		self.pad = self.f_pad									#padding
 		
-		#other											#set the function
+		#other											
+		self.AF = AF()											#activation function
 		self.optimizer = optimizer(lr = rate)					#set the optimizer
 		self.size = 0											#Amonut of parameters
 		self.flops = 0											#Computation
@@ -133,8 +137,10 @@ class Conv:
 		col = im2col(x, FH, FW, self.stride, self.pad)					#Change the image to colume
 		col_W = self.params['W1'].reshape(FN, -1).T						#Change the filters to colume
 		out = np.dot(col, col_W) + self.params['b1']
+		out = self.AF.forward(out)
 		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)	#change colume to image
 		
+
 		self.x_shape = x.shape
 		self.col = col
 
@@ -144,6 +150,7 @@ class Conv:
 		FN, C, FH, FW = self.params['W1'].shape
 		
 		dout = dout.transpose(0,2,3,1).reshape(-1, FN)					#change gradient to colume
+		dout = self.AF.backward(dout)
 		self.grad['b1'] = np.sum(dout, axis=0)
 		self.grad['W1'] = np.dot(self.col.T, dout)
 		self.col = None
@@ -183,7 +190,7 @@ class DeConv:
 	The forward of DeConv is same to Convolution's backward and backward is same to conv's forward too.
 	'''
 	
-	def __init__(self,conv_param,init_std=1,learning_rate=0.01,optimizer=Adam):
+	def __init__(self,conv_param,AF=Elu,init_std=1,optimizer=Adam(0.001)):
 		self.name = 'DeConvNet'
 		#Initialize
 		self.shapeIn = None
@@ -201,7 +208,8 @@ class DeConv:
 		self.stride = self.f_stride
 		
 		#Activation function & optimizer
-		self.optimizer = optimizer(lr = learning_rate)
+		self.AF = AF()
+		self.optimizer = optimizer
 		
 		#data for backward
 		self.x_shape = None   
@@ -223,6 +231,7 @@ class DeConv:
 		col_W = self.params['W1'].reshape(FN, -1)
 		out = np.dot(col, col_W)
 		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0)
+		out = self.AF.forward(out)
 		
 		self.x_shape = x.shape
 		self.col = col
@@ -231,8 +240,8 @@ class DeConv:
 	
 	def backward(self, dout):
 		FN, C, FH, FW = self.params['W1'].shape
-		N, C, H, W = dout.shape
 		
+		dout = self.AF.backward(dout)
 		dout = im2col(dout, FH, FW, self.stride, 0)
 		
 		self.grad['W1'] = np.dot(self.col.T, dout)
@@ -469,7 +478,7 @@ class BatchNorm:
 	def forward(self, x, Train_flag=True):
 		self.input_shape = x.shape
 		if x.ndim != 2:
-			N, C, H, W = x.shape
+			N = x.shape[0]
 			x = x.reshape(N, -1)
 
 		out = self.__forward(x, Train_flag)
@@ -479,7 +488,7 @@ class BatchNorm:
 	def __forward(self, x, train_flg):
 		gamma, beta = self.params['gamma'],self.params['beta']
 		if self.params['running_mean'] is None:
-			N, D = x.shape
+			D = x.shape[1]
 			self.params['running_mean'] = np.zeros(D)
 			self.params['running_var'] = np.zeros(D)
 
@@ -507,7 +516,7 @@ class BatchNorm:
 
 	def backward(self, dout):
 		if dout.ndim != 2:
-			N, C, H, W = dout.shape
+			N = dout.shape[0]
 			dout = dout.reshape(N, -1)
 
 		dx = self.__backward(dout)
@@ -652,7 +661,7 @@ class ResLayer:
 				
 				#set Activation Functions & optimizer
 				self.Conv.AF = AF()
-				self.Conv.optimizer = optimizer(rate)
+				self.Conv.optimizer = optimizer
 				
 				#Caculate the FLOPs & Amount of params
 				self.Conv.size = FN*C+FN
@@ -678,34 +687,26 @@ class ResLayer:
 	
 		for i in self.layer:
 			i.AF = ID()
-			i.optimizer = optimizer(rate)
+			i.optimizer = optimizer
 			self.layers.append(i)
 			self.layers.append(BatchNorm())
 			self.layers.append(AF())
-		
-		self.layers.pop()
 		
 		return init
 	
 	def forward(self,x,require_grad=True):
 		out = x
-		for i in self.layers:
-			out = i.forward(out,require_grad)
-		
+		out2 = x
+		length = len(self.layers)
+		for i in range(length-1):
+			out = self.layers[i].forward(out)
+
 		if self.use_conv:
-			if self.use_pool:
-				temp = self.Conv.forward(x,require_grad)
-				out2 = self.pool.forward(temp,require_grad)
-			else:
-				out2 = self.Conv.forward(x,require_grad)
+			out2 = self.Conv.forward(out2)
+		if self.use_pool:
+			out2 = self.pool.forward(out2)
 		
-		else:
-			if self.use_pool:
-				out2 = self.pool.forward(x,require_grad)
-			else:
-				pass
-		
-		return out+out2
+		return self.layers[length-1].forward(out+out2)
 	
 	def backward(self,dout):
 		dx = dout
@@ -750,7 +751,7 @@ class ResLayer:
 			
 			j+=1
 		
-		if use_conv:
+		if self.use_conv:
 			self.Conv.save(str(j+1)+'_Res_'+name)
 		
 	def load(self, name="Res"):
@@ -878,44 +879,30 @@ class ResLayerV2:
 	
 	def forward(self,x,require_grad=True):
 		out = x
+		out2 = x
 		for i in self.layers:
-			out = i.forward(out,require_grad)
+			out = i.forward(out)
 		
 		if self.use_conv:
-			if self.use_pool:
-				temp = self.Conv.forward(x,require_grad)
-				out2 = self.pool.forward(temp,require_grad)
-			else:
-				out2 = self.Conv.forward(x,require_grad)
-		
-		else:
-			if self.use_pool:
-				out2 = self.pool.forward(x,require_grad)
-			else:
-				out2 = x
+			out2 = self.Conv.forward(out2)
+		if self.use_pool:
+			out2 = self.pool.forward(out2)
 		
 		return out+out2
 	
 	def backward(self,dout):
 		dx = dout
-		
+		dx2 = dout
+
 		self.layers.reverse()
 		for i in self.layers:
 			dx = i.backward(dx)
 		self.layers.reverse()
 		
+		if self.use_pool:
+			dx2 = self.pool.backward(dx2)
 		if self.use_conv:
-			if self.use_pool:
-				temp = self.pool.backward(dout)
-				dx2 = self.Conv.backward(temp)
-			else:
-				dx2 = self.Conv.backward(dout)
-		
-		else:
-			if self.use_pool:
-				dx2 = self.pool.backward(dout)
-			else:
-				dx2 = dout
+			dx2 = self.Conv.backward(dx2)
 			
 		return dx+dx2
 	
@@ -1100,7 +1087,6 @@ class TimeDense:
 			
 			self.layers.append(layer)
 		
-		hs = self.AF.foward(hs)
 		return hs
 		
 	def backward(self,dhs):
@@ -1111,8 +1097,6 @@ class TimeDense:
 		dxs = np.empty((N, T, D), dtype='f')
 		self.grad['W1'] = np.zeros_like(Wx)
 		self.grad['b1'] = np.zeros_like(b)
-		
-		dhs = self.AF.backward(dhs)
 
 		for t in reversed(range(T)):
 			layer = self.layers[t]
@@ -1177,7 +1161,7 @@ class LSTM:
 		
 	def forward(self,input,Hin,C):
 		Wx,Wh,b = self.params
-		N, H = Hin.shape
+		H = Hin.shape[1]
 		A = np.dot(input,Wx)+np.dot(Hin,Wh)+b
 		
 		#slice
@@ -1349,7 +1333,7 @@ class GRU:
 		
 	def forward(self,input,Hin=None):
 		Wx,Wh,b = self.params
-		N, H = Hin.shape
+		H = Hin.shape[1]
 		
 		x = np.dot(input,Wx)
 		h = np.dot(Hin,Wh)
@@ -1442,7 +1426,7 @@ class TimeGRU:
 		return hs
 		
 	def backward(self,dhs):
-		Wx, Wh, b = self.params['Wx'],self.params['Wh'],self.params['b']
+		Wx= self.params['Wx']
 		N, T, H = dhs.shape
 		D = Wx.shape[0]
 		
