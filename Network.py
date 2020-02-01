@@ -22,7 +22,7 @@ rn = np.random.randn
 
 class Net:
 	
-	def __init__(self,network,init_std=0.01,init_mode = 'normal',AF=Elu,rate=0.001,optimizer=Adam,data_shape = (3,224,224)):
+	def __init__(self,network,init_std=0.01,init_mode = 'normal',AF=Elu,rate=0.001,optimizer=Adam,data_shape = (3,224,224),type = (np.float32)):
 		self.net = []
 		for i in network:
 			self.net.append(i)
@@ -37,7 +37,7 @@ class Net:
 		
 		#initial process
 		if not Ini:
-			init = rn(data_shape[0],data_shape[1],data_shape[2])		#data for initial
+			init = rn(data_shape[0],data_shape[1],data_shape[2])										#data for initial
 			j = 0
 			for i in range(self.layers):
 				name = self.net[i].name
@@ -48,6 +48,7 @@ class Net:
 						init = init.reshape(1,init.shape[0],init.shape[1],init.shape[2])
 					elif name == 'Dense':
 						init = init.reshape(1,init.size)
+						
 				
 				self.net[i].shapeIn = init.shape[1:]					#save the input shape
 				
@@ -63,45 +64,60 @@ class Net:
 					if name == 'ConvNet':
 						FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
 						
-						self.net[i].params['W1'] = init_std * rn(FN, C, S, S)					#weight's shape is (F_num,input_channel,F_size,F_Size)
+						self.net[i].params['W1'] = init_std * rn(FN, C, S, S).astype(type)	#weight's shape is (F_num,input_channel,F_size,F_Size)
 						self.net[i].params['b1'] *= init_std
-						out = self.net[i].forward(init)											#data to set next layer
+						self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
+						out = self.net[i].forward(init)												#data to set next layer
 						
 						N, out_C, out_H, out_W = out.shape
-						self.net[i].flops = ((C*S**2))*out_H*out_W*out_C						#caculate the FLOPs
-						self.net[i].size = FN*C*S*S + FN										#caculate the amount of parameters
+						self.net[i].flops = ((C*S**2))*out_H*out_W*out_C							#caculate the FLOPs
+						self.net[i].size = FN*C*S*S + FN											#caculate the amount of parameters
 					
 					#Transpose Convolution
 					else:
 						FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
 						
-						self.net[i].params['W1'] = init_std * rn(C, FN, S, S)					#weight's shape is (Input_channel,F_Num,F_size,F_Size)
+						self.net[i].params['W1'] = init_std * rn(C, FN, S, S).astype(type)	#weight's shape is (Input_channel,F_Num,F_size,F_Size)
 						self.net[i].params['b1'] *= init_std
-						out = self.net[i].forward(init)											#data to set next layer
+						self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
+						out = self.net[i].forward(init)												#data to set next layer
 						
 						N, out_C, out_H, out_W = out.shape
-						self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C						#caculate the FLOPs
-						self.net[i].size = self.net[i].params['W1'].size						#caculate the amount of parameters
+						self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C							#caculate the FLOPs
+						self.net[i].size = self.net[i].params['W1'].size							#caculate the amount of parameters
 				
 					init = out
 				
 				#Fully connected layer
 				elif name == 'Dense':
 					out_size = self.net[i].output_size
-					self.net[i].params['W1'] = init_std*rn(init.size, out_size)					#weight's shape is (input_size,output_size)
-					self.net[i].params['b1'] *= init_std										
-					self.net[i].optimizer = optimizer(rate)										#set Optimizer
+					self.net[i].params['W1'] = init_std*rn(init.size, out_size).astype(type)	#weight's shape is (input_size,output_size)
+					self.net[i].params['b1'] *= init_std
+					self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
+					self.net[i].optimizer = optimizer(rate)											#set Optimizer
 					self.net[i].AF = AF()
-					self.net[i].flops = init.shape[1]*out_size									#caculate the FLOPs
-					self.net[i].size = init.size*out_size + out_size							#caculate the amount of parameters
+					self.net[i].flops = init.shape[1]*out_size										#caculate the FLOPs
+					self.net[i].size = init.size*out_size + out_size								#caculate the amount of parameters
 				
 				#ResLayer(Block of ResNet)
 				elif name == 'ResLayer':
-					self.net[i].AF = AF															#set Activation Function
-					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer(rate))		#see layer.py(In fact the function is same as here)
+					self.net[i].AF = AF																#set Activation Function
+					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer(rate))			#see layer.py(In fact the function is same as here)
 				
 				elif name == 'BatchNorm':
 					self.net[i].optimizer = optimizer(rate)
+				
+				elif name == 'TimeLSTM':
+					T = init.shape[1]
+					D = init.shape[2]
+					H = self.net[i].node
+					self.net[i].params['Wx'] = rn(D, 4*H)*init_std
+					self.net[i].params['Wh'] = rn(H, 4*H)*init_std
+					self.net[i].params['b'] = np.ones(4*H)*init_std
+					self.net[i].optimizer = optimizer(rate)											#set Optimizer
+					self.net[i].AF = AF()
+					self.net[i].flops = T*D*4*H+T*H*4*H												#caculate the FLOPs
+					self.net[i].size = (D+H+1)*4*H
 				
 				else:
 					pass
@@ -115,7 +131,14 @@ class Net:
 				j += 1
 		else:
 			pass
-	
+		
+		for i in range(self.layers):
+			try:
+				for x in self.net[i].params.keys():
+					self.net[i].params[x] = self.net[i].params[x].astype(type)
+			except AttributeError:
+				pass
+		
 	#print the model(About layer/amount of parameter/FLOPS...)
 	def print_size(self):
 		total = 0		#Total amount of parameters
@@ -134,7 +157,7 @@ class Net:
 				pass
 				
 		print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
-		print("│   Total   │{:^7.2f}│{:>10}│              │             │".format(total_f/1000000000,total))
+		print("│   Total   │{:^7.2f}│{:>10}│              │	            │".format(total_f/1000000000,total))
 		print("└───────────┴───────┴──────────┴──────────────┴─────────────┘")	
 
 	#forward process. DropOut is set OFF. SoftmaxWithLoss return the answer
@@ -210,10 +233,10 @@ class Net:
 		else:
 			self.net.reverse()
 			y = self.forward(input, t)			#froward(get the answer)
-			loss = cross_entropy_error(y,t)		#caculate the loss
+			loss = mean_squared_error(y,t)		#caculate the loss
 			
 			batch_size = t.shape[0]
-			if t.size == y.size:		#if the size of y and t is the same
+			if t.size == y.size:				#if the size of y and t is the same
 				dx = (y - t) / batch_size
 			
 			else:								#if not
@@ -224,6 +247,11 @@ class Net:
 		
 		#回傳loss
 		return loss
+	
+	def reset(self):
+		for i in range(len(self.net)):
+			if self.net[i].name == 'TimeLSTM':
+				self.net[i].reset_state()
 	
 	#caculate the accuracy of the net
 	def accuracy(self, x, t, batch_size = 100, print_the_result = False):

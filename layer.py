@@ -82,9 +82,9 @@ class Dense:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val)
+					self.params[key] = np.asarray(val).astype(np.float32).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val)
+					self.params[key] = cp.asnumpy(val).astype(np.float32).astype(np.float32)
 			else:
 				print('weight shape error')
 
@@ -176,9 +176,9 @@ class Conv:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val)
+					self.params[key] = np.asarray(val).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val)
+					self.params[key] = cp.asnumpy(val).astype(np.float32)
 			else:
 				print('weight shape error')
 
@@ -267,9 +267,9 @@ class DeConv:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val)
+					self.params[key] = np.asarray(val).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val)
+					self.params[key] = cp.asnumpy(val).astype(np.float32)
 
 
 class Pool:
@@ -1045,9 +1045,9 @@ class TimeEmbedding:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val)
+					self.params[key] = np.asarray(val).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val)
+					self.params[key] = cp.asnumpy(val).astype(np.float32)
 
 
 class TimeDense:
@@ -1124,9 +1124,9 @@ class TimeDense:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val)
+					self.params[key] = np.asarray(val).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val)
+					self.params[key] = cp.asnumpy(val).astype(np.float32)
 	
 	
 class LSTM:
@@ -1211,7 +1211,7 @@ class LSTM:
 
 class TimeLSTM:
 	
-	def __init__(self,stateful=False,optimizer=Adam,rate=0.001):
+	def __init__(self,node,stateful=False,optimizer=Adam,rate=0.001,Train_flag = True):
 		self.name = 'TimeLSTM'
 		#initialize
 		self.h, self.c = None,None
@@ -1219,6 +1219,7 @@ class TimeLSTM:
 		self.stateful = stateful
 		
 		#parameters
+		self.node = node
 		self.params={}
 		self.params['Wx'] = None
 		self.params['Wh'] = None
@@ -1231,6 +1232,7 @@ class TimeLSTM:
 		self.flops = 0
 		self.size = 0
 		self.optimizer = optimizer(rate)
+		self.train_flag = Train_flag
 		
 	def forward(self, xs):
 		Wx, Wh, b = self.params['Wx'],self.params['Wh'],self.params['b']
@@ -1272,10 +1274,16 @@ class TimeLSTM:
 				print(dxs.shape)
 			for i , grad in enumerate(layer.grad):
 				grads[i] += grad
-				
-		self.grad['Wx'] = grads[0]
-		self.grad['Wh'] = grads[1]
-		self.grad['b'] = grads[2]
+		
+		if self.train_flag:
+			self.grad['Wx'] = grads[0]
+			self.grad['Wh'] = grads[1]
+			self.grad['b'] = grads[2]
+		else:
+			self.grad['Wx'] = 0
+			self.grad['Wh'] = 0
+			self.grad['b'] = 0
+
 		self.dh = dh
 		
 		return dxs
@@ -1300,9 +1308,9 @@ class TimeLSTM:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val)
+					self.params[key] = np.asarray(val).astype(np.float32).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val)
+					self.params[key] = cp.asnumpy(val).astype(np.float32).astype(np.float32)
 	
 
 class GRU:
@@ -1471,9 +1479,9 @@ class TimeGRU:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val)
+					self.params[key] = np.asarray(val).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val)
+					self.params[key] = cp.asnumpy(val).astype(np.float32)
 
 
 

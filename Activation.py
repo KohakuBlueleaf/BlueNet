@@ -1,6 +1,6 @@
 # coding: utf-8
 from functions import *	
-from setting import exp			
+from setting import exp,np		
 
 
 '''

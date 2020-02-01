@@ -1,6 +1,7 @@
 # coding: utf-8
 from setting import np
 from setting import erf
+import numpy
 
 '''
 Activation Functions
@@ -119,9 +120,36 @@ def gelu_erf_grad(x):
 Other Functions
 '''
 
+# 将整数表示成为binary_dim位的二进制数，高位用0补齐
+def int_2_binary(number, binary_dim):
+    binary_list = list(map(lambda x: int(x), bin(number)[2:]))
+    number_dim = len(binary_list)
+    result_list = [0]*(binary_dim-number_dim)+binary_list
+    return result_list
+
+# 将一个二进制数组转为整数
+def binary2int(binary_array):
+    out = 0
+    for index, x in enumerate(reversed(binary_array)):
+        out += x * pow(2, index)
+    return out
+
+def get_binary_data(BINARY_DIM):
+	binary = numpy.array([int_2_binary(x, BINARY_DIM) for x in range(2**BINARY_DIM)])
+	
+	dataX = []
+	dataY = []
+	
+	for i in range(binary.shape[0]):
+		for j in range(binary.shape[0]):
+			dataX.append(numpy.append(binary[i], binary[j]))
+			dataY.append(int_2_binary(i+j, BINARY_DIM+1))
+	
+	return (numpy.reshape(dataX, (len(dataX), BINARY_DIM*2,1)),numpy.array(dataY))
+
 def mean_squared_error(y, t):
 	
-	return 0.5 * np.sum((y-t)**2)
+	return 0.5 * np.sum((y-t+1e-6)**2)
 
 def cross_entropy_error(y, t):
 	if y.ndim == 1:
@@ -133,7 +161,7 @@ def cross_entropy_error(y, t):
 			 
 	batch_size = y.shape[0]
 	
-	return -np.sum(np.log(y[np.arange(batch_size), t] + 1e-7)) / batch_size
+	return -np.sum(np.log(y[np.arange(batch_size), t] + 1e-6)) / batch_size
 
 def softmax(x):
 	if x.ndim == 2:
@@ -266,7 +294,7 @@ def im2col(input_data, filter_h, filter_w, stride=1, pad=0):
 			x_max = x + stride*out_w
 			col[:, :, y, x, :, :] = img[:, :, y:y_max:stride, x:x_max:stride]
 
-	col = col.transpose(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1)
+	col = col.transpose(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1).astype(np.float32)
 	
 	return col
 
@@ -285,7 +313,7 @@ def col2im(col, input_shape, filter_h, filter_w, stride=1, pad=0):
 			x_max = x + stride*out_w
 			img[:, :, y:y_max:stride, x:x_max:stride] += col[:, :, y, x, :, :]
 
-	return img[:, :, pad:H + pad, pad:W + pad]
+	return img[:, :, pad:H + pad, pad:W + pad].astype(np.float32)
 
 
 '''
