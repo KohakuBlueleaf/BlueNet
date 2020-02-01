@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 
 
-file = './cifar/data_batch_'
+file = './database/cifar_data/data_batch_'
 
 def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False):
 	with open(file+str(1), 'rb',) as f:
@@ -22,7 +22,7 @@ def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False):
 	with open(file+str(5), 'rb',) as f:
 		dataset5 = pickle.load(f,encoding='bytes')
 	dataset = {}
-	with open('./cifar/test_batch', 'rb') as f:
+	with open('./database/cifar_data/test_batch', 'rb') as f:
 		testset = pickle.load(f,encoding='bytes')
 	
 	dataset[b'data'] = np.vstack((dataset1[b'data'],dataset2[b'data'],dataset3[b'data'],dataset4[b'data'],dataset5[b'data']))
