@@ -5,9 +5,9 @@ from Activation import *
 
 #Hyperparameters
 rate = 0.001
-batch_size = 200
-init_std = 0.01
-init_mode = 'xaiver'
+batch_size = 256
+init_std = 0.05
+init_mode = 'normal'
 
 #function for network
 optimizer = Adam
@@ -15,15 +15,10 @@ AF = GELU
 
 #The model of network
 Network = [
-			Conv({'f_num':15, 'f_size':5, 'pad':2, 'stride':1}),
-			Pool(2,2,2),
-			Conv({'f_num':40, 'f_size':5, 'pad':0, 'stride':1}),
-			Pool(2,2,2),
-			Conv({'f_num':300, 'f_size':5, 'pad':0, 'stride':1}),
 			Flatten(),
-			Dense(output_size=210),
-			Dense(output_size=26),
-			SoftmaxWithLoss()
+			Dense(500),
+			Dense(26),
+			SoftmaxWithLoss(),
 		]
 #Usual model
 
