@@ -42,8 +42,8 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 		testset['data'] /= 255.0
 
 	if one_hot_label:
-		dataset['labels'] = _change_one_hot_label(dataset['labels'],26)
-		testset['labels'] = _change_one_hot_label(testset['labels'],26)
+		dataset['labels'] = _change_one_hot_label(dataset['labels']-1,26)
+		testset['labels'] = _change_one_hot_label(testset['labels']-1,26)
 
 	if not flatten:
 		dataset['data'] = dataset['data'].reshape(-1, 1, 28, 28)
@@ -76,6 +76,7 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 
 
 if __name__ == '__main__':
+	
 	(x_train, t_train), (x_test, t_test) = load_emnist(flatten=False, one_hot_label=False)
 	print(x_train.shape)
 	print(t_train.shape)
