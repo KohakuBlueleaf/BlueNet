@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 
 #initialize
-(x_train,t_train),(x_test,t_test) = load_emnist(True, False, True, False)#Load the database
+(x_train,t_train),(x_test,t_test) = load_mnist(True, True, True, False)#Load the database
 									#normalize,flatten,one_hot_label,smooth
 train_size = x_train.shape[0]
 train_loss_list = []
@@ -33,7 +33,7 @@ p = iter_per_epoch//50
 max_acc = 0
 
 #Set the network
-net = Net(model, init_std, init_mode, AF, rate, optimizer, x_train[0].shape)
+net = Net(model, init_std, init_mode, AF, rate, optimizer, (1,28,28), np.float32)
 net.update() #load the parameters
 
 #start

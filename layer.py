@@ -1391,7 +1391,7 @@ class GRU:
 
 class TimeGRU:
 	
-	def __init__(self,stateful=False):
+	def __init__(self,node,stateful=False,optimizer=Adam,rate=0.001,Train_flag = True):
 		self.name = 'TimeGRU'
 		#initialize
 		self.h = None
@@ -1411,7 +1411,9 @@ class TimeGRU:
 		#other
 		self.flops = 0
 		self.size = 0
-		self.optimizer = Adam(0.01)
+		self.optimizer = optimizer(rate)
+		self.node = node
+		self.train_flag = Train_flag
 		
 	def forward(self, xs):
 		Wx, Wh, b = self.params['Wx'],self.params['Wh'],self.params['b']
@@ -1451,10 +1453,16 @@ class TimeGRU:
 				print(dxs.shape)
 			for i , grad in enumerate(layer.grad):
 				grads[i] += grad
-				
-		self.grad['Wx'] = grads[0]
-		self.grad['Wh'] = grads[1]
-		self.grad['b'] = grads[2]
+		
+		if self.train_flag:
+			self.grad['Wx'] = grads[0]
+			self.grad['Wh'] = grads[1]
+			self.grad['b'] = grads[2]
+		else:
+			self.grad['Wx'] = 0
+			self.grad['Wh'] = 0
+			self.grad['b'] = 0
+			
 		self.dh = dh
 		
 		return dxs

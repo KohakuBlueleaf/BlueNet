@@ -5,21 +5,27 @@ from Activation import *
 
 #Hyperparameters
 rate = 0.001
-batch_size = 256
+batch_size = 200
 init_std = 0.05
-init_mode = 'normal'
+init_mode = 'xaiver'
 
 #function for network
 optimizer = Adam
 AF = GELU
 
 #The model of network
-Network = [
-			Flatten(),
-			Dense(500),
-			Dense(26),
-			SoftmaxWithLoss(),
-		]
+Network = [	
+			Dense(550),
+			BatchNorm(),
+			Dropout(0.5),
+			
+			Dense(370),
+			BatchNorm(),
+			Dropout(0.5),
+			
+			Dense(10),
+			SoftmaxWithLoss()
+			]
 #Usual model
 
 

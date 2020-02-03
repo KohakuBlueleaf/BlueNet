@@ -91,7 +91,7 @@ class Net:
 				#Fully connected layer
 				elif name == 'Dense':
 					out_size = self.net[i].output_size
-					self.net[i].params['W1'] = init_std*rn(init.size, out_size).astype(type)	#weight's shape is (input_size,output_size)
+					self.net[i].params['W1'] = init_std*rn(init.size, out_size).astype(type)		#weight's shape is (input_size,output_size)
 					self.net[i].params['b1'] *= init_std
 					self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
 					self.net[i].optimizer = optimizer(rate)											#set Optimizer
@@ -102,7 +102,7 @@ class Net:
 				#ResLayer(Block of ResNet)
 				elif name == 'ResLayer':
 					self.net[i].AF = AF																#set Activation Function
-					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer(rate))			#see layer.py(In fact the function is same as here)
+					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer)				#see layer.py(In fact the function is same as here)
 				
 				elif name == 'BatchNorm':
 					self.net[i].optimizer = optimizer(rate)
@@ -118,6 +118,17 @@ class Net:
 					self.net[i].AF = AF()
 					self.net[i].flops = T*D*4*H+T*H*4*H												#caculate the FLOPs
 					self.net[i].size = (D+H+1)*4*H
+				
+				elif name == 'TimeGRU':
+					T = init.shape[1]
+					D = init.shape[2]
+					H = self.net[i].node
+					self.net[i].params['Wx'] = rn(D, 3*H)*init_std
+					self.net[i].params['Wh'] = rn(H, 3*H)*init_std
+					self.net[i].params['b'] = np.ones(3*H)*init_std
+					self.net[i].optimizer = optimizer(rate)
+					self.net[i].flops = T*D*3*H+T*H*3*H												#caculate the FLOPs
+					self.net[i].size = (D+H+1)*3*H
 				
 				else:
 					pass
@@ -238,11 +249,11 @@ class Net:
 			batch_size = t.shape[0]
 			if t.size == y.size:				#if the size of y and t is the same
 				dx = (y - t) / batch_size
-			
 			else:								#if not
 				dx = y.copy()
 				dx[np.arange(batch_size), t] -= 1
 				dx = dx / batch_size
+			
 			self.back_train(dx)
 		
 		#回傳loss
@@ -255,9 +266,9 @@ class Net:
 	
 	#caculate the accuracy of the net
 	def accuracy(self, x, t, batch_size = 100, print_the_result = False):
-		ac = 0									#amount of correct answer
-		for i in range(x.shape[0]//batch_size):			#process 10 datas in a time
-			batch = numpy.arange(i*batch_size, batch_size+i*batch_size)	#choose the data in order
+		ac = 0																#amount of correct answer
+		for i in range(x.shape[0]//batch_size):								#process 10 datas in a time
+			batch = numpy.arange(i*batch_size, batch_size+i*batch_size)		#choose the data in order
 			
 			x_batch = np.asarray(x[batch])
 			t_batch = np.asarray(t[batch])
@@ -265,7 +276,7 @@ class Net:
 			y = self.process(x_batch)
 			y = np.argmax(y, axis=1)			
 			tt = np.argmax(t_batch, axis=1)
-			ac += np.sum(y == tt)				#save the amount of correct answer
+			ac += np.sum(y == tt)											#save the amount of correct answer
 			
 		accuracy = ac / x.shape[0]
 		if print_the_result:
@@ -295,7 +306,7 @@ class Net:
 			try:
 				self.net[i].load(str(i+1))
 		
-			except AttributeError:	#AF pooling flatten
+			except AttributeError:						#AF pooling flatten
 				pass
 			
 			except FileNotFoundError:
@@ -308,6 +319,6 @@ class Net:
 			try:
 				self.net[i].save(str(i+1))
 			
-			except AttributeError: 	#AF pooling Flatten
+			except AttributeError: 						#AF pooling Flatten
 				pass
 
