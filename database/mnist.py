@@ -82,7 +82,7 @@ def init_mnist():
 	print("Done!")
 
 
-def load_mnist(normalize=True, flatten=True, one_hot_label=True, smooth=False):
+def load_mnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, type=np.float32):
 	"""MNISTデータセットの読み込み
 
 	Parameters
@@ -105,7 +105,7 @@ def load_mnist(normalize=True, flatten=True, one_hot_label=True, smooth=False):
 
 	if normalize:
 		for key in ('train_img', 'test_img'):
-			dataset[key] = dataset[key].astype(np.float32)
+			dataset[key] = dataset[key].astype(type)
 			dataset[key] /= 255.0
 
 	if one_hot_label:

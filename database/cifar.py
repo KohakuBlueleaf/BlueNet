@@ -10,7 +10,7 @@ from PIL import Image
 
 file = './database/cifar_data/data_batch_'
 
-def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False):
+def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False, type=np.float32):
 	with open(file+str(1), 'rb',) as f:
 		dataset1 = pickle.load(f,encoding='bytes')
 	with open(file+str(2), 'rb',) as f:
@@ -30,9 +30,9 @@ def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False):
 	
 	
 	if normalize:
-		dataset[b'data'] = dataset[b'data'].astype(np.float32)
+		dataset[b'data'] = dataset[b'data'].astype(type)
 		dataset[b'data'] /= 255.0
-		testset[b'data'] = testset[b'data'].astype(np.float32)
+		testset[b'data'] = testset[b'data'].astype(type)
 		testset[b'data'] /= 255.0
 
 	if one_hot_label:

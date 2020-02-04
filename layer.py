@@ -95,7 +95,7 @@ class Conv:
 	Convolution Layer
 	'''
 	
-	def __init__(self,conv_param,AF=Elu,init_std=1,rate=0.01,optimizer=Adam):
+	def __init__(self,conv_param,AF=Elu,init_std=1,rate=0.01,optimizer=Adam,type = np.float32):
 		self.name = 'ConvNet'
 		#Initialize
 		self.shapeIn = None
@@ -104,6 +104,7 @@ class Conv:
 		self.f_size = conv_param['f_size']						#Size of filters
 		self.f_pad = conv_param['pad']							#Padding size
 		self.f_stride = conv_param['stride']					#Step of filters
+		self.type = type
 		
 		#params
 		self.params = {}
@@ -134,11 +135,11 @@ class Conv:
 		out_h = 1 + int((H + 2*self.pad - FH) / self.stride)
 		out_w = 1 + int((W + 2*self.pad - FW) / self.stride)
 		
-		col = im2col(x, FH, FW, self.stride, self.pad)					#Change the image to colume
-		col_W = self.params['W1'].reshape(FN, -1).T						#Change the filters to colume
+		col = im2col(x, FH, FW, self.stride, self.pad, self.type)					#Change the image to colume
+		col_W = self.params['W1'].reshape(FN, -1).T									#Change the filters to colume
 		out = np.dot(col, col_W) + self.params['b1']
 		out = self.AF.forward(out)
-		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)	#change colume to image
+		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)				#change colume to image
 		
 
 		self.x_shape = x.shape
@@ -149,7 +150,7 @@ class Conv:
 	def backward(self, dout):
 		FN, C, FH, FW = self.params['W1'].shape
 		
-		dout = dout.transpose(0,2,3,1).reshape(-1, FN)					#change gradient to colume
+		dout = dout.transpose(0,2,3,1).reshape(-1, FN)								#change gradient to colume
 		dout = self.AF.backward(dout)
 		self.grad['b1'] = np.sum(dout, axis=0)
 		self.grad['W1'] = np.dot(self.col.T, dout)
@@ -157,7 +158,7 @@ class Conv:
 		self.grad['W1'] = self.grad['W1'].transpose(1, 0).reshape(FN, C, FH, FW)
 		
 		dcol = np.dot(dout, self.params['W1'].reshape(FN, -1))
-		dx = col2im(dcol, self.x_shape, FH, FW, self.stride, self.pad)
+		dx = col2im(dcol, self.x_shape, FH, FW, self.stride, self.pad, self.type)
 
 		return dx
 	
@@ -190,7 +191,7 @@ class DeConv:
 	The forward of DeConv is same to Convolution's backward and backward is same to conv's forward too.
 	'''
 	
-	def __init__(self,conv_param,AF=Elu,init_std=1,optimizer=Adam(0.001)):
+	def __init__(self,conv_param,AF=Elu,init_std=1,optimizer=Adam(0.001),type=np.float32):
 		self.name = 'DeConvNet'
 		#Initialize
 		self.shapeIn = None
@@ -198,6 +199,7 @@ class DeConv:
 		self.f_num = conv_param['f_num']						#Amount of filters
 		self.f_size = conv_param['f_size']						#Filter size
 		self.f_stride = conv_param['stride']					#Step
+		self.type = type
 		
 		#params
 		self.params = {}
@@ -230,7 +232,7 @@ class DeConv:
 		col = x.transpose(0,2,3,1).reshape(-1,FN)
 		col_W = self.params['W1'].reshape(FN, -1)
 		out = np.dot(col, col_W)
-		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0)
+		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0, self.type)
 		out = self.AF.forward(out)
 		
 		self.x_shape = x.shape
@@ -242,7 +244,7 @@ class DeConv:
 		FN, C, FH, FW = self.params['W1'].shape
 		
 		dout = self.AF.backward(dout)
-		dout = im2col(dout, FH, FW, self.stride, 0)
+		dout = im2col(dout, FH, FW, self.stride, 0, self.type)
 		
 		self.grad['W1'] = np.dot(self.col.T, dout)
 		self.grad['W1'] = self.grad['W1'].transpose(1, 0).reshape(FN, C, FH, FW)
@@ -661,7 +663,7 @@ class ResLayer:
 				
 				#set Activation Functions & optimizer
 				self.Conv.AF = AF()
-				self.Conv.optimizer = optimizer
+				self.Conv.optimizer = optimizer(rate)
 				
 				#Caculate the FLOPs & Amount of params
 				self.Conv.size = FN*C+FN
@@ -687,7 +689,7 @@ class ResLayer:
 	
 		for i in self.layer:
 			i.AF = ID()
-			i.optimizer = optimizer
+			i.optimizer = optimizer(rate)
 			self.layers.append(i)
 			self.layers.append(BatchNorm())
 			self.layers.append(AF())
@@ -709,25 +711,20 @@ class ResLayer:
 		return self.layers[length-1].forward(out+out2)
 	
 	def backward(self,dout):
+		self.layers.reverse()
+		dout = self.layers[0].backward(dout)
 		dx = dout
+		dx2 = dout
+
 		
-		self.layers.reverse()
-		for i in self.layers:
-			dx = i.backward(dx)
+		for i in range(1,len(self.layers)):
+			dx = self.layers[i].backward(dx)
 		self.layers.reverse()
 		
+		if self.use_pool:
+			dx2 = self.pool.backward(dx2)
 		if self.use_conv:
-			if self.use_pool:
-				temp = self.pool.backward(dout)
-				dx2 = self.Conv.backward(temp)
-			else:
-				dx2 = self.Conv.backward(dout)
-		
-		else:
-			if self.use_pool:
-				dx2 = self.pool.backward(dout)
-			else:
-				pass
+			dx2 = self.Conv.backward(dx2)
 			
 		return dx+dx2
 	
@@ -907,9 +904,9 @@ class ResLayerV2:
 		return dx+dx2
 	
 	def train(self):
-		for i in self.layers:
+		for i in range(len(self.layers)):
 			try:
-				i.optimizer.update(i.params,i.grad)
+				self.layers[i].optimizer.update(self.layers[i].params,self.layers[i].grad)
 			except AttributeError:
 				pass
 		

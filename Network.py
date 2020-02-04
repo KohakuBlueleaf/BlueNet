@@ -44,7 +44,7 @@ class Net:
 				
 				if j == 0:
 					#set the shape of data. Falt the data if first layer is dense
-					if name == 'ConvNet' or name == 'DeConvNet' or name == 'ResLayer':
+					if name == 'ConvNet' or name == 'DeConvNet' or name == 'ResLayer' or 'Flatten':
 						init = init.reshape(1,init.shape[0],init.shape[1],init.shape[2])
 					elif name == 'Dense':
 						init = init.reshape(1,init.size)
@@ -64,7 +64,8 @@ class Net:
 					if name == 'ConvNet':
 						FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
 						
-						self.net[i].params['W1'] = init_std * rn(FN, C, S, S).astype(type)	#weight's shape is (F_num,input_channel,F_size,F_Size)
+						self.net[i].type = type
+						self.net[i].params['W1'] = init_std * rn(FN, C, S, S).astype(type)			#weight's shape is (F_num,input_channel,F_size,F_Size)
 						self.net[i].params['b1'] *= init_std
 						self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
 						out = self.net[i].forward(init)												#data to set next layer
@@ -77,7 +78,8 @@ class Net:
 					else:
 						FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
 						
-						self.net[i].params['W1'] = init_std * rn(C, FN, S, S).astype(type)	#weight's shape is (Input_channel,F_Num,F_size,F_Size)
+						self.net[i].type = type
+						self.net[i].params['W1'] = init_std * rn(C, FN, S, S).astype(type)			#weight's shape is (Input_channel,F_Num,F_size,F_Size)
 						self.net[i].params['b1'] *= init_std
 						self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
 						out = self.net[i].forward(init)												#data to set next layer
@@ -111,9 +113,9 @@ class Net:
 					T = init.shape[1]
 					D = init.shape[2]
 					H = self.net[i].node
-					self.net[i].params['Wx'] = rn(D, 4*H)*init_std
-					self.net[i].params['Wh'] = rn(H, 4*H)*init_std
-					self.net[i].params['b'] = np.ones(4*H)*init_std
+					self.net[i].params['Wx'] = rn(D, 4*H).astype(type)*init_std
+					self.net[i].params['Wh'] = rn(H, 4*H).astype(type)*init_std
+					self.net[i].params['b'] = np.ones(4*H).astype(type)*init_std
 					self.net[i].optimizer = optimizer(rate)											#set Optimizer
 					self.net[i].AF = AF()
 					self.net[i].flops = T*D*4*H+T*H*4*H												#caculate the FLOPs
@@ -123,9 +125,9 @@ class Net:
 					T = init.shape[1]
 					D = init.shape[2]
 					H = self.net[i].node
-					self.net[i].params['Wx'] = rn(D, 3*H)*init_std
-					self.net[i].params['Wh'] = rn(H, 3*H)*init_std
-					self.net[i].params['b'] = np.ones(3*H)*init_std
+					self.net[i].params['Wx'] = rn(D, 3*H).astype(type)*init_std
+					self.net[i].params['Wh'] = rn(H, 3*H).astype(type)*init_std
+					self.net[i].params['b'] = np.ones(3*H).astype(type)*init_std
 					self.net[i].optimizer = optimizer(rate)
 					self.net[i].flops = T*D*3*H+T*H*3*H												#caculate the FLOPs
 					self.net[i].size = (D+H+1)*3*H
@@ -135,7 +137,11 @@ class Net:
 				
 				#these layers don't need to caculate the data for next layer so we just skip it
 				if name != 'Softmax' and name != 'ResLayer' and name != 'ConvNet' and name != 'DeConvNet':
-					init = self.net[i].forward(init)
+					try:
+						init = self.net[i].forward(init)
+					except:
+						print(init.shape)
+						print(self.net[i].params['W1'].shape)
 				
 				#save the output shape
 				self.net[i].shapeOut = init.shape[1:]
@@ -236,20 +242,20 @@ class Net:
 		#if final layer is SoftmaxWithLoss
 		if self.net[0].name == 'Softmax':
 			self.net.reverse()
-			error = self.forward(input, t)		#forward(get the loss)
+			error = self.forward(input, t)					#forward(get the loss)
 			self.back_train(error)
 			loss = error
 
 		#if final layer isn't SoftmaxWithLoss
 		else:
 			self.net.reverse()
-			y = self.forward(input, t)			#froward(get the answer)
-			loss = mean_squared_error(y,t)		#caculate the loss
+			y = self.forward(input, t)						#froward(get the answer)
+			loss = mean_squared_error(y,t)					#caculate the loss
 			
 			batch_size = t.shape[0]
-			if t.size == y.size:				#if the size of y and t is the same
+			if t.size == y.size:							#if the size of y and t is the same
 				dx = (y - t) / batch_size
-			else:								#if not
+			else:											#if not
 				dx = y.copy()
 				dx[np.arange(batch_size), t] -= 1
 				dx = dx / batch_size

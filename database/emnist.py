@@ -29,16 +29,16 @@ def load_imgs(file):
 	imgs = imgs.reshape(-1, img_size)
 	return imgs
 
-def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, choose = 0):
+def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, choose = 0, type=np.float32):
 	dataset['data'] = load_imgs(file['train_img'])
 	testset['data'] = load_imgs(file['test_img'])
 	dataset['labels'] = load_labels(file['train_label'])
 	testset['labels'] = load_labels(file['test_label'])
 
 	if normalize:
-		dataset['data'] = dataset['data'].astype(np.float32)
+		dataset['data'] = dataset['data'].astype(type)
 		dataset['data'] /= 255.0
-		testset['data'] = testset['data'].astype(np.float32)
+		testset['data'] = testset['data'].astype(type)
 		testset['data'] /= 255.0
 
 	if one_hot_label:
