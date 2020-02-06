@@ -22,22 +22,23 @@ rn = np.random.randn
 
 class Net:
 	
-	def __init__(self,network,init_std=0.01,init_mode = 'normal',AF=Elu,rate=0.001,optimizer=Adam,data_shape = (3,224,224),type = (np.float32)):
+	def __init__(self, network, init_std=0.005, init_mode='normal', AF=Relu, rate=0.001,\
+						optimizer=Adam, data_shape=(3,224,224), type=np.float32):
 		self.net = []
 		for i in network:
 			self.net.append(i)
-		self.layers = len(network)		#amount of layers
-		Ini = True						#Initialized or not
+		self.layers = len(network)																	#amount of layers
+		Ini = True																					#Initialized or not
 		
 		#if any layer's parameters haven't been setted, set Ini=False to run the initial process
 		for i in self.net:
 			if i.name == 'ConvNet' or i.name == 'DeConvNet' or i.name == 'Dense':
-				if i.params['W1'] is None:
+				if i.params['W'] is None:
 					Ini = False
 		
 		#initial process
 		if not Ini:
-			init = rn(data_shape[0],data_shape[1],data_shape[2])										#data for initial
+			init = rn(data_shape[0],data_shape[1],data_shape[2])						 			#data for initial
 			j = 0
 			for i in range(self.layers):
 				name = self.net[i].name
@@ -50,14 +51,14 @@ class Net:
 						init = init.reshape(1,init.size)
 						
 				
-				self.net[i].shapeIn = init.shape[1:]					#save the input shape
+				self.net[i].shapeIn = init.shape[1:]												#save the input shape
 				
 				if init_mode == 'xaiver':
 					init_std = 1/(init.size**0.5)
 				
 				#Convolution
 				if name == 'ConvNet' or name == 'DeConvNet':
-					self.net[i].optimizer = optimizer(rate)				#set Optimizer(see optimizer.py)
+					self.net[i].optimizer = optimizer(rate)											#set Optimizer(see optimizer.py)
 					self.net[i].AF = AF()
 
 					#Convolution
@@ -65,9 +66,9 @@ class Net:
 						FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
 						
 						self.net[i].type = type
-						self.net[i].params['W1'] = init_std * rn(FN, C, S, S).astype(type)			#weight's shape is (F_num,input_channel,F_size,F_Size)
-						self.net[i].params['b1'] *= init_std
-						self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
+						self.net[i].params['W'] = init_std * rn(FN, C, S, S)						#weight's shape is (F_num,input_channel,F_size,F_Size)
+						self.net[i].params['b'] *= init_std
+						self.net[i].params['b'] = self.net[i].params['b']
 						out = self.net[i].forward(init)												#data to set next layer
 						
 						N, out_C, out_H, out_W = out.shape
@@ -79,23 +80,23 @@ class Net:
 						FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
 						
 						self.net[i].type = type
-						self.net[i].params['W1'] = init_std * rn(C, FN, S, S).astype(type)			#weight's shape is (Input_channel,F_Num,F_size,F_Size)
-						self.net[i].params['b1'] *= init_std
-						self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
+						self.net[i].params['W'] = init_std * rn(C, FN, S, S)						#weight's shape is (Input_channel,F_Num,F_size,F_Size)
+						self.net[i].params['b'] *= init_std
+						self.net[i].params['b'] = self.net[i].params['b']
 						out = self.net[i].forward(init)												#data to set next layer
 						
 						N, out_C, out_H, out_W = out.shape
 						self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C							#caculate the FLOPs
-						self.net[i].size = self.net[i].params['W1'].size							#caculate the amount of parameters
+						self.net[i].size = self.net[i].params['W'].size							#caculate the amount of parameters
 				
 					init = out
 				
 				#Fully connected layer
 				elif name == 'Dense':
 					out_size = self.net[i].output_size
-					self.net[i].params['W1'] = init_std*rn(init.size, out_size).astype(type)		#weight's shape is (input_size,output_size)
-					self.net[i].params['b1'] *= init_std
-					self.net[i].params['b1'] = self.net[i].params['b1'].astype(type)
+					self.net[i].params['W'] = init_std*rn(init.size, out_size)						#weight's shape is (input_size,output_size)
+					self.net[i].params['b'] *= init_std
+					self.net[i].params['b'] = self.net[i].params['b']
 					self.net[i].optimizer = optimizer(rate)											#set Optimizer
 					self.net[i].AF = AF()
 					self.net[i].flops = init.shape[1]*out_size										#caculate the FLOPs
@@ -104,7 +105,7 @@ class Net:
 				#ResLayer(Block of ResNet)
 				elif name == 'ResLayer':
 					self.net[i].AF = AF																#set Activation Function
-					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer)				#see layer.py(In fact the function is same as here)
+					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer,rate,type)		#see layer.py(In fact the function is same as here)
 				
 				elif name == 'BatchNorm':
 					self.net[i].optimizer = optimizer(rate)
@@ -113,9 +114,9 @@ class Net:
 					T = init.shape[1]
 					D = init.shape[2]
 					H = self.net[i].node
-					self.net[i].params['Wx'] = rn(D, 4*H).astype(type)*init_std
-					self.net[i].params['Wh'] = rn(H, 4*H).astype(type)*init_std
-					self.net[i].params['b'] = np.ones(4*H).astype(type)*init_std
+					self.net[i].params['Wx'] = rn(D, 4*H)*init_std
+					self.net[i].params['Wh'] = rn(H, 4*H)*init_std
+					self.net[i].params['b'] = np.ones(4*H)*init_std
 					self.net[i].optimizer = optimizer(rate)											#set Optimizer
 					self.net[i].AF = AF()
 					self.net[i].flops = T*D*4*H+T*H*4*H												#caculate the FLOPs
@@ -125,9 +126,9 @@ class Net:
 					T = init.shape[1]
 					D = init.shape[2]
 					H = self.net[i].node
-					self.net[i].params['Wx'] = rn(D, 3*H).astype(type)*init_std
-					self.net[i].params['Wh'] = rn(H, 3*H).astype(type)*init_std
-					self.net[i].params['b'] = np.ones(3*H).astype(type)*init_std
+					self.net[i].params['Wx'] = rn(D, 3*H)*init_std
+					self.net[i].params['Wh'] = rn(H, 3*H)*init_std
+					self.net[i].params['b'] = np.ones(3*H)*init_std
 					self.net[i].optimizer = optimizer(rate)
 					self.net[i].flops = T*D*3*H+T*H*3*H												#caculate the FLOPs
 					self.net[i].size = (D+H+1)*3*H
@@ -141,7 +142,7 @@ class Net:
 						init = self.net[i].forward(init)
 					except:
 						print(init.shape)
-						print(self.net[i].params['W1'].shape)
+						print(self.net[i].params['W'].shape)
 				
 				#save the output shape
 				self.net[i].shapeOut = init.shape[1:]
@@ -218,7 +219,7 @@ class Net:
 	
 	#Backward + train(Change the parameters)
 	def back_train(self,error):
-		error = self.backward(error)	#backpropagation first
+		error = self.backward(error)					#backpropagation first
 		
 		for i in range(self.layers):
 			#call the train function in the ResLayer
@@ -227,6 +228,7 @@ class Net:
 			else:
 				try:
 					self.net[i].optimizer.update(self.net[i].params,self.net[i].grad)
+					self.net[i].grad = {}
 				#if the layer doesn't have the optimizer, skip it.
 				except AttributeError:
 					pass
@@ -266,7 +268,7 @@ class Net:
 		return loss
 	
 	def reset(self):
-		for i in range(len(self.net)):
+		for i in range(self.layers):
 			if self.net[i].name == 'TimeLSTM':
 				self.net[i].reset_state()
 	

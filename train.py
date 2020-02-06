@@ -8,8 +8,9 @@ from Network import Net
 
 #import the loader of dataset
 from mnist import load_mnist
-from cifar import load_cifar
 from emnist import load_emnist
+from cifar import load_cifar
+from cifar100 import load_cifar100
 
 #import config of network
 from config import batch_size,optimizer,rate,init_std,init_mode,AF
@@ -23,7 +24,7 @@ import matplotlib.pyplot as plt
 
 
 #initialize
-(x_train,t_train),(x_test,t_test) = load_emnist(True, False, True, False, 0, np.float32)#Load the database
+(x_train,t_train),(x_test,t_test) = load_cifar(True, False, True, False, np.float32)#Load the database
 									#normalize,flatten,one_hot_label,smooth
 train_size = x_train.shape[0]
 train_loss_list = []

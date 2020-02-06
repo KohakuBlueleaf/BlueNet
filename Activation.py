@@ -116,6 +116,7 @@ class GELU:
 	def __init__(self):
 		self.name='GELU'
 		self.In = None
+		self.size = 0
 	
 	def forward(self,x,require_grad=True):
 		self.In = x

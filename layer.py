@@ -15,7 +15,6 @@ import sys
 
 rn = np.random.randn
 
-
 class Dense:
 	
 	'''
@@ -26,30 +25,31 @@ class Dense:
 		self.name = 'Dense'
 		#initialize
 		self.output_size = output_size
-		self.shapeIn = None									#shape of data(IN)
-		self.shapeOut = None								#shape of data(OUT)
+		self.shapeIn = None											#shape of data(IN)
+		self.shapeOut = None										#shape of data(OUT)
 		
 		#params
 		self.params = {}
-		self.params['W1'] = None							#Weight
-		self.params['b1'] = np.ones(output_size)			#Bias
-		self.grad = {}										#Gradient of weight and bias
+		self.params['W'] = None									#Weight
+		self.params['b'] = np.ones(output_size)					#Bias
+		self.grad = {}												#Gradient of weight and bias
 		
 		#other()
-		self.AF = AF()										#activation function
-		self.optimizer = optimizer(lr = learning_rate)		#Optimizer
-		self.size = None									#amount of params(Weight+bias)
-		self.flops = None									#FLOPs of this layer
+		self.AF = AF()												#activation function
+		self.optimizer = optimizer(lr = learning_rate)				#Optimizer
+		self.size = None											#amount of params(Weight+bias)
+		self.flops = None											#FLOPs of this layer
 		
 
 		#data for backward
 		self.x = None
 	
 	def forward(self, x):
-		if self.params['W1'] is None:
-			self.params['W1'] = rn(x.shape[1], self.output_size)/x.shape[1]**0.5
+		if self.params['W'] is None:
+			self.params['W'] = rn(x.shape[1], self.output_size)/x.shape[1]**0.5
 		
-		out = np.dot(x, self.params['W1']) + self.params['b1']
+		out = np.dot(x, self.params['W']) + self.params['b']
+		self.size = out.size+self.params['W'].size
 		out = self.AF.forward(out)
 		
 		self.x = x
@@ -59,15 +59,15 @@ class Dense:
 	def backward(self,error):
 		
 		dout = self.AF.backward(error)	
-		dx = np.dot(dout, self.params['W1'].T)				#BP for input
+		dx = np.dot(dout, self.params['W'].T)						#BP for input
 		
-		self.grad['W1'] = np.dot(self.x.T,dout)				#BP for weight
+		self.grad['b'] = np.sum(dout, axis=0)						#BP for bias
+		self.grad['W'] = np.dot(self.x.T,dout)						#BP for weight
 		self.x = None
-		self.grad['b1'] = np.sum(dout, axis=0)				#BP for bias
 
 		return dx
 	
-	def save(self, name="Dense_W"):							#Save the parameters
+	def save(self, name="Dense_W"):									#Save the parameters
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
@@ -75,16 +75,16 @@ class Dense:
 		with open('./weight/new/Dense_W_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
-	def load(self, name="Dense_W"):							#Load the parameters
+	def load(self, name="Dense_W"):									#Load the parameters
 		with open('./weight/new/Dense_W_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val).astype(np.float32).astype(np.float32)
+					self.params[key] = np.asarray(val).astype(self.type).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(np.float32).astype(np.float32)
+					self.params[key] = cp.asnumpy(val).astype(self.type).astype(np.float32)
 			else:
 				print('weight shape error')
 
@@ -108,8 +108,8 @@ class Conv:
 		
 		#params
 		self.params = {}
-		self.params['W1'] = None								#Set by intial process(see Network.py)
-		self.params['b1'] = np.ones(self.f_num)					#Bias
+		self.params['W'] = None								#Set by intial process(see Network.py)
+		self.params['b'] = np.ones(self.f_num)					#Bias
 		self.grad = {}											#Gradient of parameters
 		self.stride = self.f_stride								#step(stride)
 		self.pad = self.f_pad									#padding
@@ -122,42 +122,46 @@ class Conv:
 		
 		#data for backpropagation
 		self.x_shape = None   									#shape of input
-		self.col = None											#colume of input
+		self.x = None											#colume of input
 	
 	def forward(self, x):
-		if self.params['W1'].shape is None:
-			self.params['W1'] = rn(self.f_num,x.shape[1],self.f_size,self.f_size)
-			self.params['W1'] /= self.params['W1'].size**0.5
+		if self.params['W'].shape is None:
+			self.params['W'] = rn(self.f_num,x.shape[1],self.f_size,self.f_size)
+			self.params['W'] /= self.params['W'].size**0.5
 	
-		FN, C, FH, FW = self.params['W1'].shape
+		FN, C, FH, FW = self.params['W'].shape
 		N, C, H, W = x.shape
 		
 		out_h = 1 + int((H + 2*self.pad - FH) / self.stride)
 		out_w = 1 + int((W + 2*self.pad - FW) / self.stride)
 		
 		col = im2col(x, FH, FW, self.stride, self.pad, self.type)					#Change the image to colume
-		col_W = self.params['W1'].reshape(FN, -1).T									#Change the filters to colume
-		out = np.dot(col, col_W) + self.params['b1']
+		col_W = self.params['W'].reshape(FN, -1).T									#Change the filters to colume
+		
+		out = np.dot(col, col_W) + self.params['b']
 		out = self.AF.forward(out)
 		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)				#change colume to image
 		
-
+		self.size = col.size+col_W.size+out.size*2
 		self.x_shape = x.shape
-		self.col = col
+		self.x = x
 
 		return out
 	
 	def backward(self, dout):
-		FN, C, FH, FW = self.params['W1'].shape
+		FN, C, FH, FW = self.params['W'].shape
 		
 		dout = dout.transpose(0,2,3,1).reshape(-1, FN)								#change gradient to colume
 		dout = self.AF.backward(dout)
-		self.grad['b1'] = np.sum(dout, axis=0)
-		self.grad['W1'] = np.dot(self.col.T, dout)
-		self.col = None
-		self.grad['W1'] = self.grad['W1'].transpose(1, 0).reshape(FN, C, FH, FW)
 		
-		dcol = np.dot(dout, self.params['W1'].reshape(FN, -1))
+		col = im2col(self.x, FH, FW, self.stride, self.pad, self.type)
+		self.grad['b'] = np.sum(dout, axis=0)
+		self.grad['W'] = np.dot(col.T, dout).transpose(1, 0).reshape(FN, C, FH, FW)
+		
+		col = None
+		self.x = None
+		
+		dcol = np.dot(dout, self.params['W'].reshape(FN, -1))
 		dx = col2im(dcol, self.x_shape, FH, FW, self.stride, self.pad, self.type)
 
 		return dx
@@ -177,9 +181,9 @@ class Conv:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val).astype(np.float32)
+					self.params[key] = np.asarray(val).astype(self.type)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(np.float32)
+					self.params[key] = cp.asnumpy(val).astype(self.type)
 			else:
 				print('weight shape error')
 
@@ -203,7 +207,7 @@ class DeConv:
 		
 		#params
 		self.params = {}
-		self.params['W1'] = None								#Set by intial process(see Network.py)
+		self.params['W'] = None								#Set by intial process(see Network.py)
 		self.size = 0
 		self.flops = 0
 		self.grad = {}
@@ -219,18 +223,18 @@ class DeConv:
 		self.col_W = None
 
 	def forward(self, x):
-		if self.params['W1'].shape is None:
-			self.params['W1'] = rn(x.shape[1],self.f_num,self.f_size,self.f_size)
-			self.params['W1'] /= self.params['W1'].size**0.5
+		if self.params['W'].shape is None:
+			self.params['W'] = rn(x.shape[1],self.f_num,self.f_size,self.f_size)
+			self.params['W'] /= self.params['W'].size**0.5
 	
-		FN, C, FH, FW = self.params['W1'].shape
+		FN, C, FH, FW = self.params['W'].shape
 		N, B, H, W = x.shape
 		
 		out_h = FH + int((H - 1) * self.stride)
 		out_w = FW + int((W - 1) * self.stride)
 		
 		col = x.transpose(0,2,3,1).reshape(-1,FN)
-		col_W = self.params['W1'].reshape(FN, -1)
+		col_W = self.params['W'].reshape(FN, -1)
 		out = np.dot(col, col_W)
 		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0, self.type)
 		out = self.AF.forward(out)
@@ -241,15 +245,15 @@ class DeConv:
 		return out
 	
 	def backward(self, dout):
-		FN, C, FH, FW = self.params['W1'].shape
+		FN, C, FH, FW = self.params['W'].shape
 		
 		dout = self.AF.backward(dout)
 		dout = im2col(dout, FH, FW, self.stride, 0, self.type)
 		
-		self.grad['W1'] = np.dot(self.col.T, dout)
-		self.grad['W1'] = self.grad['W1'].transpose(1, 0).reshape(FN, C, FH, FW)
+		self.grad['W'] = np.dot(self.col.T, dout)
+		self.grad['W'] = self.grad['W'].transpose(1, 0).reshape(FN, C, FH, FW)
 		
-		dcol = np.dot(dout, self.params['W1'].reshape(FN, -1).T)
+		dcol = np.dot(dout, self.params['W'].reshape(FN, -1).T)
 		dx = dcol.reshape((self.x_shape[0],self.x_shape[2],self.x_shape[3],-1)).transpose(0,3,1,2)
 
 		return dx
@@ -269,16 +273,16 @@ class DeConv:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val).astype(np.float32)
+					self.params[key] = np.asarray(val).astype(self.type)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(np.float32)
+					self.params[key] = cp.asnumpy(val).astype(self.type)
 
 
 class Pool:
 	
 	'''
 	Max-Pooling
-	A convolution layer that the filter is choose the biggest value
+	A convolution layer that the filter is choosing the biggest value
 	'''
 	
 	def __init__(self, pool_h, pool_w, stride=1, pad=0):
@@ -311,6 +315,7 @@ class Pool:
 		col = col.reshape(-1, self.pool_h*self.pool_w)
 		arg_max = np.argmax(col, axis=1)								#Choose the highest value
 		out = np.max(col, axis=1)
+		self.size = col.size+out.size
 		out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)		#Colume reshape to image
 		
 		self.x = x
@@ -335,7 +340,7 @@ class Pool:
 class PoolAvg:
 	
 	'''
-	Max-Pooling
+	Avg-Pooling
 	A convolution layer that the filter is caclulate the average.
 	'''
 	
@@ -610,7 +615,7 @@ class ResLayer:
 		self.shapeOut = None
 		self.shapeIn = None
 		
-	def initial(self,data,init_std,init_mode='normal',AF=Elu,optimizer=Adam,rate=0.001):
+	def initial(self,data,init_std,init_mode='normal',AF=Elu,optimizer=Adam,rate=0.001,type = np.float32):
 		init = data
 		
 		for i in range(len(self.layer)):
@@ -619,10 +624,11 @@ class ResLayer:
 			
 			if self.layer[i].name == 'ConvNet':
 				FN, C, S = self.layer[i].f_num, init.shape[1], self.layer[i].f_size
+				self.layer[i].type = type
 				
 				#set the params
-				self.layer[i].params['W1'] = init_std * rn(FN, C, S, S)
-				self.layer[i].params['b1'] *= init_std
+				self.layer[i].params['W'] = init_std * rn(FN, C, S, S).astype(type)
+				self.layer[i].params['b'] = self.layer[i].params['b'].astype(type)*init_std
 				out = self.layer[i].forward(init)
 				
 				#Caculate the FLOPs & Amount of params
@@ -640,8 +646,8 @@ class ResLayer:
 				
 				#set the params
 				out_size =  self.layer[i].output_size
-				self.layer[i].params['W1'] = init_std * rn(init.size, out_size)
-				self.layer[i].params['b1'] *= init_std
+				self.layer[i].params['W'] = init_std * rn(init.size, out_size).astype(type)
+				self.layer[i].params['b'] = self.layer[i].params['b'].astype(type)*init_std
 				
 				#Caculate the FLOPs & Amount of params
 				self.layer[i].size = init.size*out_size + out_size
@@ -658,8 +664,9 @@ class ResLayer:
 				
 				#set the params
 				self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
-				self.Conv.params['W1'] = init_std * rn(FN,C,1,1)
-				self.Conv.params['b1'] *= init_std
+				self.Conv.type = type
+				self.Conv.params['W'] = init_std * rn(FN,C,1,1).astype(type)
+				self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
 				
 				#set Activation Functions & optimizer
 				self.Conv.AF = AF()
@@ -700,14 +707,17 @@ class ResLayer:
 		out = x
 		out2 = x
 		length = len(self.layers)
+		self.size = 0
 		for i in range(length-1):
 			out = self.layers[i].forward(out)
-
+			self.size+=self.layers[i].size
 		if self.use_conv:
 			out2 = self.Conv.forward(out2)
+			self.size+=self.Conv.size
 		if self.use_pool:
 			out2 = self.pool.forward(out2)
-		
+			self.size+=self.pool.size
+			
 		return self.layers[length-1].forward(out+out2)
 	
 	def backward(self,dout):
@@ -799,8 +809,8 @@ class ResLayerV2:
 				FN, C, S = self.layer[i].f_num, init.shape[1], self.layer[i].f_size
 				
 				#set the params
-				self.layer[i].params['W1'] = init_std * rn(FN, C, S, S)
-				self.layer[i].params['b1'] *= init_std
+				self.layer[i].params['W'] = init_std * rn(FN, C, S, S)
+				self.layer[i].params['b'] *= init_std
 				out = self.layer[i].forward(init)
 				
 				#Caculate the FLOPs & Amount of params
@@ -818,8 +828,8 @@ class ResLayerV2:
 				
 				#set the params
 				out_size =  self.layer[i].output_size
-				self.layer[i].params['W1'] = init_std * rn(init.size, out_size)
-				self.layer[i].params['b1'] *= init_std
+				self.layer[i].params['W'] = init_std * rn(init.size, out_size)
+				self.layer[i].params['b'] *= init_std
 				
 				#Caculate the FLOPs & Amount of params
 				self.layer[i].size = init.size*out_size + out_size
@@ -836,8 +846,8 @@ class ResLayerV2:
 				
 				#set the params
 				self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
-				self.Conv.params['W1'] = init_std * rn(FN,C,1,1)
-				self.Conv.params['b1'] *= init_std
+				self.Conv.params['W'] = init_std * rn(FN,C,1,1)
+				self.Conv.params['b'] *= init_std
 				
 				#set Activation Functions & optimizer
 				self.Conv.AF = AF()
@@ -1042,9 +1052,9 @@ class TimeEmbedding:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val).astype(np.float32)
+					self.params[key] = np.asarray(val).astype(self.type)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(np.float32)
+					self.params[key] = cp.asnumpy(val).astype(self.type)
 
 
 class TimeDense:
@@ -1056,11 +1066,11 @@ class TimeDense:
 		
 		#parameters
 		self.params={}
-		self.params['W1'] = None
-		self.params['b1'] = None
+		self.params['W'] = None
+		self.params['b'] = None
 		self.grad = {}
-		self.grad['W1'] = None
-		self.grad['b1'] = None	
+		self.grad['W'] = None
+		self.grad['b'] = None	
 		
 		#other
 		self.optimizer = optimizer(rate)
@@ -1068,7 +1078,7 @@ class TimeDense:
 		self.size = 0
 	
 	def forward(self, xs):
-		Wx, b = self.params['W1'],self.params['b1']
+		Wx, b = self.params['W'],self.params['b']
 		N, T, D = xs.shape
 		H = Wx.shape[1]
 		
@@ -1077,8 +1087,8 @@ class TimeDense:
 		
 		for t in range(T):
 			layer = Dense(H)
-			layer.params['W1'] = Wx
-			layer.params['b1'] = b
+			layer.params['W'] = Wx
+			layer.params['b'] = b
 			self.h = layer.forward(xs[:, t, :])
 			hs[:, t, :] = self.h
 			
@@ -1087,13 +1097,13 @@ class TimeDense:
 		return hs
 		
 	def backward(self,dhs):
-		Wx, b = self.params['W1'],self.params['b1']
+		Wx, b = self.params['W'],self.params['b']
 		N, T, H = dhs.shape
 		D = Wx.shape[0]
 		
 		dxs = np.empty((N, T, D), dtype='f')
-		self.grad['W1'] = np.zeros_like(Wx)
-		self.grad['b1'] = np.zeros_like(b)
+		self.grad['W'] = np.zeros_like(Wx)
+		self.grad['b'] = np.zeros_like(b)
 
 		for t in reversed(range(T)):
 			layer = self.layers[t]
@@ -1111,6 +1121,7 @@ class TimeDense:
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
+		
 		with open('./weight/new/TimeDense_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
@@ -1121,9 +1132,9 @@ class TimeDense:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val).astype(np.float32)
+					self.params[key] = np.asarray(val).astype(self.type)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(np.float32)
+					self.params[key] = cp.asnumpy(val).astype(self.type)
 	
 	
 class LSTM:
@@ -1190,10 +1201,10 @@ class LSTM:
 		dTout = self.tanOu.backward(dHout*self.sigm3.out)
 		dCin = (dC+dTout)*self.sigm1.out
 		
-		df = self.sigm1.backward((dC+dTout)*self.Cin)			#df
-		dg = self.tanIn.backward((dC+dTout)*self.sigm2.out)		#dg
-		di = self.sigm2.backward((dC+dTout)*self.Tin)			#di
-		do = self.sigm3.backward(dOut*self.Tout)				#do
+		df = self.sigm1.backward((dC+dTout)*self.Cin)					#df
+		dg = self.tanIn.backward((dC+dTout)*self.sigm2.out)				#dg
+		di = self.sigm2.backward((dC+dTout)*self.Tin)					#di
+		do = self.sigm3.backward(dOut*self.Tout)						#do
 		
 		dA = np.hstack((df,dg,di,do))
 		self.grad[2] = np.hstack((np.sum(df,axis=0),np.sum(dg,axis=0),np.sum(di,axis=0),np.sum(do,axis=0)))
@@ -1305,9 +1316,9 @@ class TimeLSTM:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val).astype(np.float32).astype(np.float32)
+					self.params[key] = np.asarray(val).astype(self.type).astype(np.float32)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(np.float32).astype(np.float32)
+					self.params[key] = cp.asnumpy(val).astype(self.type).astype(np.float32)
 	
 
 class GRU:
@@ -1349,9 +1360,9 @@ class GRU:
 		xo = x[:, 2*H:]+b[2*H:]
 		ho = h[:, 2*H:]
 		
-		Sr = self.sigm1.forward(r)			#reset Gate(sigmoid)
-		Su = self.sigm2.forward(u)			#update gate(sigmoid)
-		To = self.tanIn.forward(ho*Sr+xo)	#Ouput gate(Tanh)
+		Sr = self.sigm1.forward(r)					#reset Gate(sigmoid)
+		Su = self.sigm2.forward(u)					#update gate(sigmoid)
+		To = self.tanIn.forward(ho*Sr+xo)			#Ouput gate(Tanh)
 		Hout = (Su-1)*Hin+(Su*To)
 		
 		self.Hin = Hin
@@ -1448,6 +1459,7 @@ class TimeGRU:
 				dxs[:, t, :] = dx
 			except:
 				print(dxs.shape)
+			
 			for i , grad in enumerate(layer.grad):
 				grads[i] += grad
 		
@@ -1474,6 +1486,7 @@ class TimeGRU:
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
+		
 		with open('./weight/new/TimeGRU_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
@@ -1484,9 +1497,9 @@ class TimeGRU:
 		for key, val in params.items():
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val).astype(np.float32)
+					self.params[key] = np.asarray(val).astype(self.type)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(np.float32)
+					self.params[key] = cp.asnumpy(val).astype(self.type)
 
 
 
