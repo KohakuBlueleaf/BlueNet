@@ -30,8 +30,8 @@ class Dense:
 		
 		#params
 		self.params = {}
-		self.params['W'] = None									#Weight
-		self.params['b'] = np.ones(output_size)					#Bias
+		self.params['W'] = None										#Weight
+		self.params['b'] = np.ones(output_size)						#Bias
 		self.grad = {}												#Gradient of weight and bias
 		
 		#other()
@@ -75,16 +75,20 @@ class Dense:
 		with open('./weight/new/Dense_W_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
-	def load(self, name="Dense_W"):									#Load the parameters
-		with open('./weight/new/Dense_W_'+name, 'rb') as f:
+	def load(self, name="Conv_W"):
+		with open('./weight/new/Conv_W_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
+			if key=='W1':
+				key = 'W'
+			if key=='b1':
+				key = 'b'
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = np.asarray(val).astype(self.type).astype(np.float32)
+					self.params[key] = np.asarray(val).astype(self.type)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(self.type).astype(np.float32)
+					self.params[key] = cp.asnumpy(val).astype(self.type)
 			else:
 				print('weight shape error')
 
@@ -179,6 +183,10 @@ class Conv:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
+			if key=='W1':
+				key = 'W'
+			if key=='b1':
+				key = 'b'
 			if val.shape == self.params[key].shape: 
 				try:
 					self.params[key] = np.asarray(val).astype(self.type)
@@ -798,7 +806,7 @@ class ResLayerV2:
 		self.shapeOut = None
 		self.shapeIn = None
 		
-	def initial(self,data,init_std,init_mode='normal',AF=Elu,optimizer=Adam,rate=0.001):
+	def initial(self,data,init_std,init_mode='normal',AF=Elu,optimizer=Adam,rate=0.001,type = np.float32):
 		init = data
 		
 		for i in range(len(self.layer)):
@@ -809,8 +817,8 @@ class ResLayerV2:
 				FN, C, S = self.layer[i].f_num, init.shape[1], self.layer[i].f_size
 				
 				#set the params
-				self.layer[i].params['W'] = init_std * rn(FN, C, S, S)
-				self.layer[i].params['b'] *= init_std
+				self.layer[i].params['W'] = init_std * rn(FN, C, S, S).astype(type)
+				self.layer[i].params['b'] = self.layer[i].params['b'].astype(type)*init_std
 				out = self.layer[i].forward(init)
 				
 				#Caculate the FLOPs & Amount of params
@@ -828,8 +836,8 @@ class ResLayerV2:
 				
 				#set the params
 				out_size =  self.layer[i].output_size
-				self.layer[i].params['W'] = init_std * rn(init.size, out_size)
-				self.layer[i].params['b'] *= init_std
+				self.layer[i].params['W'] = init_std * rn(init.size, out_size).astype(type)
+				self.layer[i].params['b'] = self.layer[i].params['b'].astype(type)*init_std
 				
 				#Caculate the FLOPs & Amount of params
 				self.layer[i].size = init.size*out_size + out_size
@@ -846,8 +854,8 @@ class ResLayerV2:
 				
 				#set the params
 				self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
-				self.Conv.params['W'] = init_std * rn(FN,C,1,1)
-				self.Conv.params['b'] *= init_std
+				self.Conv.params['W'] = init_std * rn(FN,C,1,1).astype(type)
+				self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
 				
 				#set Activation Functions & optimizer
 				self.Conv.AF = AF()
@@ -863,11 +871,11 @@ class ResLayerV2:
 					
 			if init.shape[2] != data.shape[2]:
 				if init.shape[2] == data.shape[2]//2:
-					self.pool = PoolAvg(2,2,2)
+					self.pool = Pool(2,2,2)
 					self.use_pool = True
 				
 				elif init.shape[2] == (data.shape[2]//2)+1:
-					self.pool = PoolAvg(2,2,2,1)
+					self.pool = Pool(2,2,2,1)
 					self.use_pool = True
 				
 				else:
