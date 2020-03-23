@@ -3,12 +3,12 @@ import sys
 sys.path.append("..") 
 import pickle
 from random import randint as rand
-from functions import _change_one_hot_label,label_smoothing
+from BlueNet.functions import _change_one_hot_label,label_smoothing
 import numpy as np
 from PIL import Image
 
 
-file = './database/cifar_data/data_batch_'
+file = 'BlueNet/database/cifar_data/data_batch_'
 
 def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False, type=np.float32):
 	with open(file+str(1), 'rb',) as f:
@@ -35,21 +35,22 @@ def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False, 
 		testset[b'data'] = testset[b'data'].astype(type)
 		testset[b'data'] /= 255.0
 
+	if not flatten:
+		#dataset[b'data'] = np.vstack((dataset[b'data'].reshape(50000, 3, 32, 32),np.flip(dataset[b'data'].reshape(50000, 3, 32, 32),(1,3))))
+		#dataset[b'labels'] = np.hstack((dataset[b'labels'],dataset[b'labels']))
+		dataset[b'data'] = dataset[b'data'].reshape(50000, 3, 32, 32)
+		testset[b'data'] = testset[b'data'].reshape(10000, 3, 32, 32)
+	
 	if one_hot_label:
 		dataset[b'labels'] = _change_one_hot_label(dataset[b'labels'],10)
 		testset[b'labels'] = _change_one_hot_label(testset[b'labels'],10)
-
-	if not flatten:
-		dataset[b'data'] = dataset[b'data'].reshape(50000, 3, 32, 32)
-		testset[b'data'] = testset[b'data'].reshape(10000, 3, 32, 32)
 	
 	if smooth:
 		dataset[b'labels'] = label_smoothing(dataset[b'labels'],0.1)
 		testset[b'labels'] = label_smoothing(testset[b'labels'],0.1)
 	
-	return (dataset[b'data'], dataset[b'labels']), (testset[b'data'], testset[b'labels'])
+	return (dataset[b'data'], dataset[b'labels'].astype(type)), (testset[b'data'], testset[b'labels'].astype(type))
 
 if __name__ == '__main__':
-	(a,b),(c,d) = load_cifar(False,False)
-	img=Image.fromarray(a[0].transpose(1,2,0),'RGB')
-	img.show()
+	(a,b),(c,d) = load_cifar(False,False,True)
+	print(a.shape,b.shape)

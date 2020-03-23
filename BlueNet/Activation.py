@@ -1,6 +1,6 @@
 # coding: utf-8
-from functions import *	
-from setting import exp,np		
+from BlueNet.functions import *	
+from BlueNet.setting import exp,np		
 
 
 '''
@@ -31,18 +31,18 @@ class Relu:
 	'''
 	
 	def __init__(self):
-		self.mask = None 		#mask for x<=0
+		self.mask = None 			#mask for x<=0
 		self.name='Relu'
 	
 	def forward(self, x):
 		self.mask = (x <= 0)
 		out = x.copy() 
-		out[self.mask] = 0 		#if x<=0 →→ x=0
+		out[self.mask] = 0 			#if x<=0 →→ x=0
 
 		return out
 	
 	def backward(self, dout):
-		dout[self.mask] = 0 	#if outx=0 dx=0
+		dout[self.mask] = 0 		#if outx=0 dx=0
 		dx = dout
 
 		return dx
@@ -213,16 +213,16 @@ class Softplus:
 	
 	def __init__(self):
 		self.name= 'Softplus'
-		self.In = None						#Store the input(for backpropagation)
+		self.In = None							#Store the input(for backpropagation)
 	
 	def forward(self, x):
 		self.In = x
-		out = softplus(x)					#see functions.py
+		out = softplus(x)						#see functions.py
 	
 		return out
 	
 	def backward(self, dout):
-		dx = dout * softplus_grad(self.In)	#see functions.py
+		dx = dout * softplus_grad(self.In)		#see functions.py
 
 		return dx
 

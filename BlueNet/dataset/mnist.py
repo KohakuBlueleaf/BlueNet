@@ -10,7 +10,7 @@ import gzip
 import pickle
 import os
 import numpy as np
-from functions import _change_one_hot_label, label_smoothing
+from BlueNet.functions import _change_one_hot_label, label_smoothing
 
 url_base = 'http://yann.lecun.com/exdb/mnist/'
 key_file = {
@@ -115,6 +115,9 @@ def load_mnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, t
 	if not flatten:
 		for key in ('train_img', 'test_img'):
 			dataset[key] = dataset[key].reshape(-1, 1, 28, 28)
+	else:
+		for key in ('train_img', 'test_img'):
+			dataset[key] = dataset[key].reshape(-1, 784)
 	
 	if smooth:
 		dataset['train_label'] = label_smoothing(dataset['train_label'],0.01)

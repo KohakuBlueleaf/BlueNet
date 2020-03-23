@@ -1,20 +1,21 @@
 # coding: utf-8
 import sys
-sys.path.append("..") 
+sys.path.append("..")  
 import pickle
 from random import randint as rand
 import numpy as np
+from PIL import Image  
 import gzip
-from functions import _change_one_hot_label, label_smoothing
+from BlueNet.functions import _change_one_hot_label, label_smoothing
 
 img_size = 784
 dataset = {}
 testset = {}
 file = {
-	'train_img':'database/gzip/emnist-letters-train-images-idx3-ubyte.gz',
-	'train_label':'database/gzip/emnist-letters-train-labels-idx1-ubyte.gz',
-	'test_img':'database/gzip/emnist-letters-test-images-idx3-ubyte.gz',
-	'test_label':'database/gzip/emnist-letters-test-labels-idx1-ubyte.gz'
+	'train_img':'BlueNet/database/gzip/emnist-letters-train-images-idx3-ubyte.gz',
+	'train_label':'BlueNet/database/gzip/emnist-letters-train-labels-idx1-ubyte.gz',
+	'test_img':'BlueNet/database/gzip/emnist-letters-test-images-idx3-ubyte.gz',
+	'test_label':'BlueNet/database/gzip/emnist-letters-test-labels-idx1-ubyte.gz'
 }
 
 def load_labels(file):
@@ -46,8 +47,8 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 		testset['labels'] = _change_one_hot_label(testset['labels']-1,26)
 
 	if not flatten:
-		dataset['data'] = dataset['data'].reshape(-1, 1, 28, 28)
-		testset['data'] = testset['data'].reshape(-1, 1, 28, 28)
+		dataset['data'] = dataset['data'].reshape(-1, 1, 28, 28).transpose(0,1,3,2)
+		testset['data'] = testset['data'].reshape(-1, 1, 28, 28).transpose(0,1,3,2)
 	
 	if choose == 0:
 		data_choose = np.arange(0,len(dataset['data']))
@@ -77,8 +78,6 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 
 if __name__ == '__main__':
 	
-	(x_train, t_train), (x_test, t_test) = load_emnist(flatten=False, one_hot_label=False)
-	print(x_train.shape)
-	print(t_train.shape)
-	print(x_test.shape)
-	print(t_test.shape)
+	(x_train, t_train), (x_test, t_test) = load_emnist(normalize=False,flatten=False, one_hot_label=False)
+	Image.fromarray(x_test[15001][0]).show()
+	print(t_test[15001])

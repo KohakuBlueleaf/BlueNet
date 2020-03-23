@@ -1,14 +1,15 @@
 # coding: utf-8
 
 #Original module
-from functions import *				#im2col and col2im function(written by 斎藤康毅)
-from optimizer import *				#SGD/Adam/optimizer/Momentum/RMSprop
-from Activation import *			#ReLU/Elu/GELU/ISRL/ISRLU/Sigmoid/Softplus/Softsign/Tanh/Arctan		
+from BlueNet.functions import *				#im2col and col2im function(written by 斎藤康毅)
+from BlueNet.optimizer import *				#SGD/Adam/optimizer/Momentum/RMSprop
+from BlueNet.Activation import *			#ReLU/Elu/GELU/ISRL/ISRLU/Sigmoid/Softplus/Softsign/Tanh/Arctan		
 
 #Native Module
+import sys,os
 import pickle
-from setting import np
-from setting import exp
+from BlueNet.setting import np
+from BlueNet.setting import exp
 import cupy as cp
 import sys
 
@@ -21,7 +22,7 @@ class Dense:
 	Full Conected Layer
 	'''
 	
-	def __init__(self, output_size,AF=Elu,learning_rate=0.01,optimizer=Adam):
+	def __init__(self, output_size,AF=Elu,rate=0.01,optimizer=Adam, normalization='L2'):
 		self.name = 'Dense'
 		#initialize
 		self.output_size = output_size
@@ -36,7 +37,7 @@ class Dense:
 		
 		#other()
 		self.AF = AF()												#activation function
-		self.optimizer = optimizer(lr = learning_rate)				#Optimizer
+		self.optimizer = optimizer(lr=rate)							#Optimizer
 		self.size = None											#amount of params(Weight+bias)
 		self.flops = None											#FLOPs of this layer
 		
@@ -49,7 +50,6 @@ class Dense:
 			self.params['W'] = rn(x.shape[1], self.output_size)/x.shape[1]**0.5
 		
 		out = np.dot(x, self.params['W']) + self.params['b']
-		self.size = out.size+self.params['W'].size
 		out = self.AF.forward(out)
 		
 		self.x = x
@@ -75,15 +75,16 @@ class Dense:
 		with open('./weight/new/Dense_W_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
-	def load(self, name="Conv_W"):
-		with open('./weight/new/Conv_W_'+name, 'rb') as f:
+	def load(self, name="Dense_W"):
+		with open('./weight/new/Dense_W_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
-		for key, val in params.items():
-			if key=='W1':
+		for keys, val in params.items():
+			if keys=='W1' or keys=='W':
 				key = 'W'
-			if key=='b1':
+			if keys=='b1' or keys=='b':
 				key = 'b'
+
 			if val.shape == self.params[key].shape: 
 				try:
 					self.params[key] = np.asarray(val).astype(self.type)
@@ -112,7 +113,7 @@ class Conv:
 		
 		#params
 		self.params = {}
-		self.params['W'] = None								#Set by intial process(see Network.py)
+		self.params['W'] = None									#Set by intial process(see Network.py)
 		self.params['b'] = np.ones(self.f_num)					#Bias
 		self.grad = {}											#Gradient of parameters
 		self.stride = self.f_stride								#step(stride)
@@ -145,8 +146,7 @@ class Conv:
 		out = np.dot(col, col_W) + self.params['b']
 		out = self.AF.forward(out)
 		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)				#change colume to image
-		
-		self.size = col.size+col_W.size+out.size*2
+
 		self.x_shape = x.shape
 		self.x = x
 
@@ -170,16 +170,16 @@ class Conv:
 
 		return dx
 	
-	def save(self, name="Conv_W"):
+	def save(self, name="Conv_W", path='./weight/new/'):
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
 	
-		with open('./weight/new/Conv_W_'+name, 'wb') as f:
+		with open(path+"Conv_W_"+name, 'wb') as f:
 			pickle.dump(params, f)
 	
-	def load(self, name="Conv_W"):
-		with open('./weight/new/Conv_W_'+name, 'rb') as f:
+	def load(self, name="Conv_W", path='./weight/new/'):
+		with open(path+"Conv_W_"+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
@@ -468,10 +468,6 @@ class BatchNorm:
 		self.momentum = momentum
 		self.input_shape = None # Conv is 4d(N C H W), FCN is 2d(N D)
 		
-		#Traning data
-		self.params['running_mean'] = running_mean
-		self.params['running_var'] = running_var  
-		
 		# backward data
 		self.batch_size = None
 		self.xc = None
@@ -502,28 +498,17 @@ class BatchNorm:
 			
 	def __forward(self, x, train_flg):
 		gamma, beta = self.params['gamma'],self.params['beta']
-		if self.params['running_mean'] is None:
-			D = x.shape[1]
-			self.params['running_mean'] = np.zeros(D)
-			self.params['running_var'] = np.zeros(D)
 
-		if train_flg:			#If you want to train the BatchNormalization layer, train_flg must be True
-			mu = x.mean(axis=0)
-			xc = x - mu
-			var = np.mean(xc**2, axis=0)
-			std = np.sqrt(var + 10e-7)
-			xn = xc / std
+		mu = x.mean(axis=0)
+		xc = x - mu
+		var = np.mean(xc**2, axis=0)
+		std = np.sqrt(var + 10e-7)
+		xn = xc / std
 			
-			self.batch_size = x.shape[0]
-			self.xc = xc
-			self.xn = xn
-			self.std = std
-			self.params['running_mean'] = self.momentum * self.params['running_mean'] + (1-self.momentum) * mu
-			self.params['running_var'] = self.momentum * self.params['running_var'] + (1-self.momentum) * var			
-		
-		else:
-			xc = x - self.params['running_mean']
-			xn = xc / ((np.sqrt(self.params['running_var'] + 10e-7)))
+		self.batch_size = x.shape[0]
+		self.xc = xc
+		self.xn = xn
+		self.std = std
 			
 		out = gamma * xn + beta 
 		
@@ -561,20 +546,23 @@ class BatchNorm:
 		
 		return dx
 	
-	def save(self, name="Batch_Norm"):
+	def save(self, name="Batch_Norm",path='./weight/new/'):
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
 	
-		with open('./weight/new/Batch_Norm_'+name, 'wb') as f:
+		with open(path+'Batch_Norm_'+name, 'wb') as f:
 			pickle.dump(params, f)
 	
-	def load(self, name="Batch_Norm"):
-		with open('./weight/new/Batch_Norm_'+name, 'rb') as f:
+	def load(self, name="Batch_Norm",path='./weight/new/'):
+		with open(path+'Batch_Norm_'+name, 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			self.params[key] = val
+			try:
+				self.params[key] = val
+			except:
+				pass
 
 
 class Dropout:
@@ -677,7 +665,7 @@ class ResLayer:
 				self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
 				
 				#set Activation Functions & optimizer
-				self.Conv.AF = AF()
+				self.Conv.AF = ID()
 				self.Conv.optimizer = optimizer(rate)
 				
 				#Caculate the FLOPs & Amount of params
@@ -690,12 +678,46 @@ class ResLayer:
 					
 			if init.shape[2] != data.shape[2]:
 				if init.shape[2] == data.shape[2]//2:
-					self.pool = PoolAvg(2,2,2)
-					self.use_pool = True
+					FN, C = init.shape[1], data.shape[1]
+					out_C, out_H, out_W = init.shape[1],data.shape[2],data.shape[3]
+					
+					self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':2})
+					self.Conv.type = type
+					self.Conv.params['W'] = init_std * rn(FN,C,1,1).astype(type)
+					self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
+					
+					#set Activation Functions & optimizer
+					self.Conv.AF = ID()
+					self.Conv.optimizer = optimizer(rate)
+					
+					#Caculate the FLOPs & Amount of params
+					self.Conv.size = FN*C+FN
+					self.Conv.flops = (C *S**2)*out_H*out_W*out_C
+					self.size += self.Conv.size
+					self.flops += self.Conv.flops
+					
+					self.use_conv = True
 				
 				elif init.shape[2] == (data.shape[2]//2)+1:
-					self.pool = PoolAvg(2,2,2,1)
-					self.use_pool = True
+					FN, C = init.shape[1], data.shape[1]
+					out_C, out_H, out_W = init.shape[1],data.shape[2],data.shape[3]
+					
+					self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':1,'stride':2})
+					self.Conv.type = type
+					self.Conv.params['W'] = init_std * rn(FN,C,1,1).astype(type)
+					self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
+					
+					#set Activation Functions & optimizer
+					self.Conv.AF = ID()
+					self.Conv.optimizer = optimizer(rate)
+					
+					#Caculate the FLOPs & Amount of params
+					self.Conv.size = FN*C+FN
+					self.Conv.flops = (C *S**2)*out_H*out_W*out_C
+					self.size += self.Conv.size
+					self.flops += self.Conv.flops
+					
+					self.use_conv = True
 				
 				else:
 					print(init.shape)
@@ -715,16 +737,13 @@ class ResLayer:
 		out = x
 		out2 = x
 		length = len(self.layers)
-		self.size = 0
+		
 		for i in range(length-1):
 			out = self.layers[i].forward(out)
-			self.size+=self.layers[i].size
+		
 		if self.use_conv:
 			out2 = self.Conv.forward(out2)
 			self.size+=self.Conv.size
-		if self.use_pool:
-			out2 = self.pool.forward(out2)
-			self.size+=self.pool.size
 			
 		return self.layers[length-1].forward(out+out2)
 	
@@ -734,13 +753,10 @@ class ResLayer:
 		dx = dout
 		dx2 = dout
 
-		
 		for i in range(1,len(self.layers)):
 			dx = self.layers[i].backward(dx)
 		self.layers.reverse()
 		
-		if self.use_pool:
-			dx2 = self.pool.backward(dx2)
 		if self.use_conv:
 			dx2 = self.Conv.backward(dx2)
 			
@@ -758,31 +774,37 @@ class ResLayer:
 	
 	def save(self, name="Res"):
 		j = 1
+		path = './weight/new/Res_'+name+'/'
+		if not os.path.isdir(path):
+			os.mkdir(path)
 		for i in self.layers:
 			try:
-				i.save(str(j)+'_Res_'+name)
-			except AttributeError: #AF pooling Flatten
+				i.save(str(j),path)
+			except AttributeError: 	#AF pooling Flatten
 				pass
 			
 			j+=1
 		
 		if self.use_conv:
-			self.Conv.save(str(j+1)+'_Res_'+name)
+			self.Conv.save(str(j+1),path)
 		
 	def load(self, name="Res"):
 		j = 1
+		path = './weight/new/Res_'+name+'/'
+		if not os.path.isdir(path):
+			os.mkdir(path)
 		for i in self.layers:
 			try:
-				i.load(str(j)+'_Res_'+name)
-			except AttributeError:#AF pooling flatten
+				i.load(str(j),path)
+			except AttributeError:		#AF pooling flatten
 				pass
-			except FileNotFoundError:#file not found(Conv,Deconv,BN,Dense)
+			except FileNotFoundError:	#file not found(Conv,Deconv,BN,Dense)
 				pass
 			
-			j+=1	
-	
+			j+=1
+		
 		if self.use_conv:
-			self.Conv.load(str(j+1)+'_Res_'+name)
+			self.Conv.load(str(j+1),path)
 		
 
 class ResLayerV2:
@@ -854,11 +876,12 @@ class ResLayerV2:
 				
 				#set the params
 				self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
+				self.Conv.type = type
 				self.Conv.params['W'] = init_std * rn(FN,C,1,1).astype(type)
 				self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
 				
 				#set Activation Functions & optimizer
-				self.Conv.AF = AF()
+				self.Conv.AF = ID()
 				self.Conv.optimizer = optimizer(rate)
 				
 				#Caculate the FLOPs & Amount of params
@@ -871,12 +894,46 @@ class ResLayerV2:
 					
 			if init.shape[2] != data.shape[2]:
 				if init.shape[2] == data.shape[2]//2:
-					self.pool = Pool(2,2,2)
-					self.use_pool = True
+					FN, C = init.shape[1], data.shape[1]
+					out_C, out_H, out_W = init.shape[1],data.shape[2],data.shape[3]
+					
+					self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':2})
+					self.Conv.type = type
+					self.Conv.params['W'] = init_std * rn(FN,C,1,1).astype(type)
+					self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
+					
+					#set Activation Functions & optimizer
+					self.Conv.AF = ID()
+					self.Conv.optimizer = optimizer(rate)
+					
+					#Caculate the FLOPs & Amount of params
+					self.Conv.size = FN*C+FN
+					self.Conv.flops = (C *S**2)*out_H*out_W*out_C
+					self.size += self.Conv.size
+					self.flops += self.Conv.flops
+					
+					self.use_conv = True
 				
 				elif init.shape[2] == (data.shape[2]//2)+1:
-					self.pool = Pool(2,2,2,1)
-					self.use_pool = True
+					FN, C = init.shape[1], data.shape[1]
+					out_C, out_H, out_W = init.shape[1],data.shape[2],data.shape[3]
+					
+					self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':1,'stride':2})
+					self.Conv.type = type
+					self.Conv.params['W'] = init_std * rn(FN,C,1,1).astype(type)
+					self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
+					
+					#set Activation Functions & optimizer
+					self.Conv.AF = ID()
+					self.Conv.optimizer = optimizer(rate)
+					
+					#Caculate the FLOPs & Amount of params
+					self.Conv.size = FN*C+FN
+					self.Conv.flops = (C *S**2)*out_H*out_W*out_C
+					self.size += self.Conv.size
+					self.flops += self.Conv.flops
+					
+					self.use_conv = True
 				
 				else:
 					print(init.shape)
@@ -900,8 +957,6 @@ class ResLayerV2:
 		
 		if self.use_conv:
 			out2 = self.Conv.forward(out2)
-		if self.use_pool:
-			out2 = self.pool.forward(out2)
 		
 		return out+out2
 	
@@ -914,8 +969,6 @@ class ResLayerV2:
 			dx = i.backward(dx)
 		self.layers.reverse()
 		
-		if self.use_pool:
-			dx2 = self.pool.backward(dx2)
 		if self.use_conv:
 			dx2 = self.Conv.backward(dx2)
 			
@@ -933,22 +986,28 @@ class ResLayerV2:
 			
 	def save(self, name="Res"):
 		j = 1
+		path = './weight/new/ResV2_'+name+'/'
+		if not os.path.isdir(path):
+			os.mkdir(path)
 		for i in self.layers:
 			try:
-				i.save(str(j)+'_Res_'+name)
+				i.save(str(j),path)
 			except AttributeError: 	#AF pooling Flatten
 				pass
 			
 			j+=1
 		
 		if self.use_conv:
-			self.Conv.save(str(j+1)+'_Res_'+name)
+			self.Conv.save(str(j+1),path)
 		
 	def load(self, name="Res"):
 		j = 1
+		path = './weight/new/ResV2_'+name+'/'
+		if not os.path.isdir(path):
+			os.mkdir(path)
 		for i in self.layers:
 			try:
-				i.load(str(j)+'_Res_'+name)
+				i.load(str(j),path)
 			except AttributeError:		#AF pooling flatten
 				pass
 			except FileNotFoundError:	#file not found(Conv,Deconv,BN,Dense)
@@ -957,7 +1016,7 @@ class ResLayerV2:
 			j+=1
 		
 		if self.use_conv:
-			self.Conv.load(str(j+1)+'_Res_'+name)
+			self.Conv.load(str(j+1),path)
 
 
 

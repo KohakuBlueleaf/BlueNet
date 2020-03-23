@@ -1,6 +1,6 @@
 # coding: utf-8
-from setting import np
-from setting import erf
+from BlueNet.setting import np
+from BlueNet.setting import erf
 import numpy
 import gc
 

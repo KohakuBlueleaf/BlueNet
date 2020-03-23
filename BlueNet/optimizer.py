@@ -1,13 +1,29 @@
 # coding: utf-8
-from setting import np
+from BlueNet.setting import np
+import sys
+
+def L1_Norm(weight,grad,decay_rate=0.00001):
+	decay = np.sum(np.abs(weight))
+	grad += decay*decay_rate
+	
+	return grad
+
+
+def L2_Norm(weight,grad,decay_rate=0.00001):
+	decay = np.sum(weight**2)**0.5
+	grad -= decay*decay_rate
+	#print(decay)
+	
+	return grad
 
 
 class SGD:
 
 	"""Stochastic Gradient Descent"""
 
-	def __init__(self, lr=0.01):
+	def __init__(self, lr=0.01, normalization=''):
 		self.lr = lr
+		self.normalization = normalization
 		
 	def update(self, params, grads):
 		for key in params.keys():
@@ -18,10 +34,11 @@ class Momentum:
 
 	"""Momentum SGD"""
 
-	def __init__(self, lr=0.01, momentum=0.9):
+	def __init__(self, lr=0.01, momentum=0.9, normalization=''):
 		self.lr = lr
 		self.momentum = momentum
 		self.v = None
+		self.normalization = normalization
 		
 	def update(self, params, grads):
 		if self.v is None:
@@ -38,10 +55,11 @@ class Nesterov:
 
 	"""Nesterov's Accelerated Gradient (http://arxiv.org/abs/1212.0901)"""
 
-	def __init__(self, lr=0.01, momentum=0.9):
+	def __init__(self, lr=0.01, momentum=0.9, normalization=''):
 		self.lr = lr
 		self.momentum = momentum
 		self.v = None
+		self.normalization = normalization
 		
 	def update(self, params, grads):
 		if self.v is None:
@@ -60,9 +78,10 @@ class AdaGrad:
 
 	"""AdaGrad"""
 
-	def __init__(self, lr=0.01):
+	def __init__(self, lr=0.01, normalization=''):
 		self.lr = lr
 		self.h = None
+		self.normalization = normalization
 		
 	def update(self, params, grads):
 		if self.h is None:
@@ -79,10 +98,11 @@ class RMSprop:
 
 	"""RMSprop"""
 
-	def __init__(self, lr=0.01, decay_rate = 0.99):
+	def __init__(self, lr=0.01, decay_rate = 0.99, normalization=''):
 		self.lr = lr
 		self.decay_rate = decay_rate
 		self.h = None
+		self.normalization = normalization
 		
 	def update(self, params, grads):
 		if self.h is None:
@@ -100,20 +120,17 @@ class Adam:
 
 	"""Adam (http://arxiv.org/abs/1412.6980v8)"""
 
-	def __init__(self, lr=0.001, beta1=0.9, beta2=0.999):
+	def __init__(self, lr=0.001, beta1=0.9, beta2=0.999, normalization='', rate=0.0001):
 		self.lr = lr
 		self.beta1 = beta1
 		self.beta2 = beta2
 		self.iter = 0
-		self.m = None
-		self.v = None
+		self.m = {}
+		self.v = {}
+		self.normalization = normalization
+		self.rate = rate
 		
 	def update(self, params, grads):
-		if self.m is None:
-			self.m, self.v = {}, {}
-			for key, val in params.items():
-				self.m[key] = np.zeros_like(val)
-				self.v[key] = np.zeros_like(val)
 		if self.m == {}:
 			for key, val in params.items():
 				self.m[key] = np.zeros_like(val)
@@ -121,7 +138,7 @@ class Adam:
 		
 		self.iter += 1
 		lr_t  = self.lr * np.sqrt(1.0 - self.beta2**self.iter) / (1.0 - self.beta1**self.iter)		 
-		
+				
 		for key in params.keys():
 			try:
 				self.m[key] += (1 - self.beta1) * (grads[key] - self.m[key])
@@ -130,4 +147,7 @@ class Adam:
 				params[key] -= lr_t * self.m[key] / (np.sqrt(self.v[key]) + 1e-7)
 			except ValueError:
 				pass
+			except KeyError:
+				print(self.m.keys(),self.v.keys())
+				sys.exit()
 

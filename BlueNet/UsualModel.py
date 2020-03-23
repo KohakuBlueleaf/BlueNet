@@ -1,7 +1,7 @@
 # coding: utf-8
-from optimizer import *
-from layer import *
-from Activation import *
+from BlueNet.optimizer import *
+from BlueNet.layer import *
+from BlueNet.Activation import *
 
 #Hyperparameters
 rate = 0.001

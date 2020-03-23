@@ -3,7 +3,7 @@ import sys
 sys.path.append("..")
 import pickle
 from random import randint as rand
-from functions import _change_one_hot_label,label_smoothing
+from BlueNet.functions import _change_one_hot_label,label_smoothing
 import numpy as np
 from PIL import Image
 
@@ -12,11 +12,11 @@ dataset1={}
 dataset2={}
 
 def load_cifar100(normalize=True, flatten=True, one_hot_label=False, smooth=False, type=np.float32):
-	with open('../database/cifar100_data/train1', 'rb',) as f:
+	with open('BlueNet/database/cifar100_data/train1', 'rb',) as f:
 		dataset1 = pickle.load(f,encoding='bytes')
-	with open('../database/cifar100_data/train2', 'rb',) as f:
+	with open('BlueNet/database/cifar100_data/train2', 'rb',) as f:
 		dataset2 = pickle.load(f,encoding='bytes')
-	with open('../database/cifar100_data/test', 'rb') as f:
+	with open('BlueNet/database/cifar100_data/test', 'rb') as f:
 		testset = pickle.load(f,encoding='bytes')
 	
 	dataset[b'data'] = np.hstack((dataset1[b'data'],dataset2[b'data']))
@@ -43,7 +43,7 @@ def load_cifar100(normalize=True, flatten=True, one_hot_label=False, smooth=Fals
 	return (dataset[b'data'], dataset[b'fine_labels']), (testset[b'data'], testset[b'fine_labels'])
 	
 def save_cifar100():
-	with open('../database/cifar100_data/train', 'rb',) as f:
+	with open('BlueNet/database/cifar100_data/train', 'rb',) as f:
 		dataset = pickle.load(f,encoding='bytes')
 	for keys,val in dataset.items():
 		try:
@@ -53,9 +53,9 @@ def save_cifar100():
 			dataset1[keys] = val
 			dataset2[keys] = val
 			
-	with open('../database/cifar100_data/train1', 'wb',) as f:
+	with open('BlueNet/database/cifar100_data/train1', 'wb',) as f:
 		pickle.dump(dataset1,f)
-	with open('../database/cifar100_data/train2', 'wb',) as f:
+	with open('BlueNet/database/cifar100_data/train2', 'wb',) as f:
 		pickle.dump(dataset2,f)
 
 if __name__ == '__main__':

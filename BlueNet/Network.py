@@ -1,12 +1,12 @@
 # coding: utf-8
 
 #Original
-from optimizer import *
-from Activation import *
-from functions import *
+from BlueNet.optimizer import *
+from BlueNet.Activation import *
+from BlueNet.functions import *
 
 #native(or usual)
-from setting import np
+from BlueNet.setting import np
 import sys,os
 import numpy
 
@@ -22,8 +22,9 @@ rn = np.random.randn
 
 class Net:
 	
-	def __init__(self, network, init_std=0.005, init_mode='normal', AF=Relu, rate=0.001,\
-						optimizer=Adam, data_shape=(3,224,224), type=np.float32):
+	def __init__(self, network, data_shape=(3,224,224), AF=Relu, optimizer=Adam, rate=0.001\
+					, init_std=0.005, init_mode='normal', type=np.float32):
+		normalization=''
 		self.net = []
 		for i in network:
 			self.net.append(i)
@@ -45,11 +46,10 @@ class Net:
 				
 				if j == 0:
 					#set the shape of data. Falt the data if first layer is dense
-					if name == 'ConvNet' or name == 'DeConvNet' or name == 'ResLayer' or 'Flatten':
+					if name == 'ConvNet' or name == 'DeConvNet' or name == 'ResLayer' or name == 'Flatten':
 						init = init.reshape(1,init.shape[0],init.shape[1],init.shape[2])
 					elif name == 'Dense':
 						init = init.reshape(1,init.size)
-						
 				
 				self.net[i].shapeIn = init.shape[1:]												#save the input shape
 				
@@ -58,7 +58,7 @@ class Net:
 				
 				#Convolution
 				if name == 'ConvNet' or name == 'DeConvNet':
-					self.net[i].optimizer = optimizer(rate)											#set Optimizer(see optimizer.py)
+					self.net[i].optimizer = optimizer(rate,normalization=normalization)				#set Optimizer(see optimizer.py)
 					self.net[i].AF = AF()
 
 					#Convolution
@@ -87,7 +87,7 @@ class Net:
 						
 						N, out_C, out_H, out_W = out.shape
 						self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C							#caculate the FLOPs
-						self.net[i].size = self.net[i].params['W'].size							#caculate the amount of parameters
+						self.net[i].size = self.net[i].params['W'].size								#caculate the amount of parameters
 				
 					init = out
 				
@@ -97,18 +97,19 @@ class Net:
 					self.net[i].params['W'] = init_std*rn(init.size, out_size)						#weight's shape is (input_size,output_size)
 					self.net[i].params['b'] *= init_std
 					self.net[i].params['b'] = self.net[i].params['b']
-					self.net[i].optimizer = optimizer(rate)											#set Optimizer
+					self.net[i].optimizer = optimizer(rate,normalization=normalization)				#set Optimizer
 					self.net[i].AF = AF()
 					self.net[i].flops = init.shape[1]*out_size										#caculate the FLOPs
 					self.net[i].size = init.size*out_size + out_size								#caculate the amount of parameters
-				
+					self.net[i].type = type
+					
 				#ResLayer(Block of ResNet)
 				elif name == 'ResLayer':
 					self.net[i].AF = AF																#set Activation Function
 					init = self.net[i].initial(init,init_std,init_mode,AF,optimizer,rate,type)		#see layer.py(In fact the function is same as here)
 				
 				elif name == 'BatchNorm':
-					self.net[i].optimizer = optimizer(rate)
+					self.net[i].optimizer = optimizer(rate,normalization=normalization)
 				
 				elif name == 'TimeLSTM':
 					T = init.shape[1]
@@ -117,7 +118,7 @@ class Net:
 					self.net[i].params['Wx'] = rn(D, 4*H)*init_std
 					self.net[i].params['Wh'] = rn(H, 4*H)*init_std
 					self.net[i].params['b'] = np.ones(4*H)*init_std
-					self.net[i].optimizer = optimizer(rate)											#set Optimizer
+					self.net[i].optimizer = optimizer(rate,normalization=normalization)				#set Optimizer
 					self.net[i].AF = AF()
 					self.net[i].flops = T*D*4*H+T*H*4*H												#caculate the FLOPs
 					self.net[i].size = (D+H+1)*4*H
@@ -129,7 +130,7 @@ class Net:
 					self.net[i].params['Wx'] = rn(D, 3*H)*init_std
 					self.net[i].params['Wh'] = rn(H, 3*H)*init_std
 					self.net[i].params['b'] = np.ones(3*H)*init_std
-					self.net[i].optimizer = optimizer(rate)
+					self.net[i].optimizer = optimizer(rate,normalization=normalization)
 					self.net[i].flops = T*D*3*H+T*H*3*H												#caculate the FLOPs
 					self.net[i].size = (D+H+1)*3*H
 				
@@ -228,7 +229,6 @@ class Net:
 			else:
 				try:
 					self.net[i].optimizer.update(self.net[i].params,self.net[i].grad)
-					self.net[i].grad = {}
 				#if the layer doesn't have the optimizer, skip it.
 				except AttributeError:
 					pass
@@ -237,34 +237,10 @@ class Net:
 	
 	#Train consist of forward, backtrain, call the optimizer
 	def train(self,input,t):
-		input = np.asarray(input)
-		t = np.asarray(t)
+		error = self.forward(input, t)					#forward(get the loss)
+		self.back_train(error)
+		loss = error
 
-		self.net.reverse()
-		#if final layer is SoftmaxWithLoss
-		if self.net[0].name == 'Softmax':
-			self.net.reverse()
-			error = self.forward(input, t)					#forward(get the loss)
-			self.back_train(error)
-			loss = error
-
-		#if final layer isn't SoftmaxWithLoss
-		else:
-			self.net.reverse()
-			y = self.forward(input, t)						#froward(get the answer)
-			loss = mean_squared_error(y,t)					#caculate the loss
-			
-			batch_size = t.shape[0]
-			if t.size == y.size:							#if the size of y and t is the same
-				dx = (y - t) / batch_size
-			else:											#if not
-				dx = y.copy()
-				dx[np.arange(batch_size), t] -= 1
-				dx = dx / batch_size
-			
-			self.back_train(dx)
-		
-		#回傳loss
 		return loss
 	
 	def reset(self):
@@ -313,20 +289,26 @@ class Net:
 			#call every layer's load function
 			try:
 				self.net[i].load(str(i+1))
-		
 			except AttributeError:						#AF pooling flatten
+				if self.net[i].name == 'Dense' or self.net[i].name == 'ConvNet':
+					self.net[i].load(str(i+1))
 				pass
-			
 			except FileNotFoundError:
 				pass
 	
 	#Save the parameters
 	def save(self):
+		path = "./weight"
+		if not os.path.isdir(path):
+			os.mkdir(path)
+		path = "./weight/new"
+		if not os.path.isdir(path):
+			os.mkdir(path)
+		
 		for i in range(self.layers):
 			#call every layer's save function
 			try:
 				self.net[i].save(str(i+1))
-			
 			except AttributeError: 						#AF pooling Flatten
 				pass
 
