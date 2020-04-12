@@ -1,6 +1,6 @@
 # coding: utf-8
-from BlueNet.functions import *	
-from BlueNet.setting import exp,np		
+from BlueNet.Functions import *	
+from BlueNet.setting import _exp		
 
 
 '''
@@ -75,7 +75,7 @@ class Leaky:
 class Elu:
 	
 	'''
-	Exponential Linear Unit
+	_exponential Linear Unit
 
 	If x>0 out = x
 	If x<=0 out = e^x-1 (Gradient = e^(e^x-1)+1
@@ -89,7 +89,7 @@ class Elu:
 	def forward(self, x):
 		self.mask = (x <= 0)	
 		out = x.copy()
-		out[self.mask] = exp(out[self.mask])-1						#if x<0→→out = e^x-1
+		out[self.mask] = _exp(out[self.mask])-1						#if x<0→→out = e^x-1
 		self.out = out
 		
 		return out

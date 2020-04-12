@@ -1,18 +1,36 @@
-import numpy as np
+import sys,os
 import time
+import numpy as np
+from numpy.random import choice as rc
 
+import BlueNet.Dataset.Mnist as mnist
 from BlueNet.Network import Net
-from BlueNet.layer import Dense,SoftmaxWithLoss
+from BlueNet.Layer import *
 from BlueNet.Activation import GELU
-from BlueNet.optimizer import Adam
-import BlueNet.dataset.mnist as mnist
+from BlueNet.Optimizer import Adam
+from BlueNet.UsualModel import LeNet
 
-(x_train,t_train),(x_test,t_test) = mnist.load_mnist(True, True, True, False, np.float32)
+
+(x_train,t_train),(x_test,t_test) = mnist.load_mnist(True, False, True, False, np.float32)
 ## load train set and test set                    Normalize Flat One-hot Smooth type
 
-model = [Dense(550), Dense(10), SoftmaxWithLoss()]
-net = Net(model, (1,28,28), GELU, Adam, 0.001, 0, 'xaiver', np.float32)
+model = [
+			Conv({'f_num':6, 'f_size':5, 'pad':2, 'stride':1}),
+			Pool(2,2,2),
+			Conv({'f_num':16, 'f_size':5, 'pad':0, 'stride':1}),
+			Pool(2,2,2),
+			Conv({'f_num':120, 'f_size':5, 'pad':0, 'stride':1}),
+			Flatten(),
+			Dense(output_size=84),
+			Dense(output_size=10),
+				
+			SoftmaxWithLoss()
+		]
+			
+net = Net(LeNet, (1,28,28), GELU, Adam, 0.001, 0, 'xaiver', np.float32)
 net.update()
+
+#net.print_size()
 
 batch_size = 300
 train_size = x_train.shape[0]
@@ -27,7 +45,7 @@ for j in range(round):
 		print("│ =========================│  ")
 	
 	for i in range(iter_per_epoch):
-		batch_mask = np.random.choice(train_size, batch_size) 	#Random choose data
+		batch_mask = rc(train_size, batch_size) 				#Random choose data
 		
 		x_batch = x_train[batch_mask]
 		t_batch = t_train[batch_mask]
@@ -46,6 +64,7 @@ for j in range(round):
 	print("│ Epoch {:3}  Test Acc:{:5.5}│  ".format(j+1,str(test_acc*100)))
 	print("│           Train Acc:{:5.5}│  ".format(str(train_acc*100)))
 	print("│           Cost Time:{:5.5}│  ".format(str(cost)))
+	
 print('└──────────────────────────┘  ')
 
 net.update()

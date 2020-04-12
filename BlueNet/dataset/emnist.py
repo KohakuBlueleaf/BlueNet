@@ -1,21 +1,23 @@
 # coding: utf-8
-import sys
+import sys,os
 sys.path.append("..")  
 import pickle
-from random import randint as rand
+import gzip
 import numpy as np
 from PIL import Image  
-import gzip
-from BlueNet.functions import _change_one_hot_label, label_smoothing
+from BlueNet.Functions import _change_one_hot_label, label_smoothing
+
 
 img_size = 784
 dataset = {}
 testset = {}
+
+dataset_dir = os.path.dirname(os.path.abspath(__file__))
 file = {
-	'train_img':'BlueNet/database/gzip/emnist-letters-train-images-idx3-ubyte.gz',
-	'train_label':'BlueNet/database/gzip/emnist-letters-train-labels-idx1-ubyte.gz',
-	'test_img':'BlueNet/database/gzip/emnist-letters-test-images-idx3-ubyte.gz',
-	'test_label':'BlueNet/database/gzip/emnist-letters-test-labels-idx1-ubyte.gz'
+	'train_img':dataset_dir+'/data/emnist/emnist-letters-train-images-idx3-ubyte.gz',
+	'train_label':dataset_dir+'/data/emnist/emnist-letters-train-labels-idx1-ubyte.gz',
+	'test_img':dataset_dir+'/data/emnist/emnist-letters-test-images-idx3-ubyte.gz',
+	'test_label':dataset_dir+'/data/emnist/emnist-letters-test-labels-idx1-ubyte.gz'
 }
 
 def load_labels(file):
@@ -77,7 +79,6 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 
 
 if __name__ == '__main__':
-	
 	(x_train, t_train), (x_test, t_test) = load_emnist(normalize=False,flatten=False, one_hot_label=False)
 	Image.fromarray(x_test[15001][0]).show()
 	print(t_test[15001])

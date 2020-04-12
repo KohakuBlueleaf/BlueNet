@@ -1,6 +1,6 @@
 # coding: utf-8
-from BlueNet.setting import np
-from BlueNet.setting import erf
+from BlueNet.setting import _np
+from BlueNet.setting import _erf
 import numpy
 import gc
 
@@ -16,11 +16,11 @@ def identity_function(x):
 
 def step_function(x): #Binary
 	
-	return np.array(x > 0, dtype=np.int)
+	return _np.array(x > 0, dtype=_np.int)
 
 def sigmoid(x):
 	
-	return 1 / (1 + np.exp(-x))	
+	return 1 / (1 + _np.exp(-x))	
 	
 def sigmoid_grad(x):
 	
@@ -28,7 +28,7 @@ def sigmoid_grad(x):
 
 def softplus(x):
 	
-	return np.log(1+np.exp(x))
+	return _np.log(1+_np.exp(x))
 
 def softplus_grad(x):
 	
@@ -36,19 +36,19 @@ def softplus_grad(x):
 
 def elu(x):
 	
-	return np.exp(x)-1
+	return _np.exp(x)-1
 	
 def elu_grad(x):
 
-	return np.exp(np.exp(x)-1)+1
+	return _np.exp(_np.exp(x)-1)+1
 
 def sinh(x):
 	
-	return ((np.exp(x) - np.exp(-x)) / 2)
+	return ((_np.exp(x) - _np.exp(-x)) / 2)
 
 def cosh(x):
 	
-	return ((np.exp(x) + np.exp(-x)) / 2)
+	return ((_np.exp(x) + _np.exp(-x)) / 2)
 
 def tanh(x):
 	
@@ -60,17 +60,17 @@ def tanh_grad(x):
 
 def relu(x):
 	
-	return np.maximum(0, x)
+	return _np.maximum(0, x)
 
 def relu_grad(x):
-	grad = np.zeros(x)
+	grad = _np.zeros(x)
 	grad[x>=0] = 1
 	
 	return grad
 	
 def arctan(x):
 
-	return(np.arctan(x))
+	return(_np.arctan(x))
 	
 def arctan_grad(x):
 
@@ -78,19 +78,19 @@ def arctan_grad(x):
 
 def softsign(x):
 	
-	return x/(np.abs(x)+1)
+	return x/(_np.abs(x)+1)
 	
 def softsign_grad(x):
 	
-	return 1/(np.abs(x)+1)**2
+	return 1/(_np.abs(x)+1)**2
 
 def softclip(x):
 	
-	return(np.log((1+np.exp(x))/(1+np.exp(x-1))))
+	return(_np.log((1+_np.exp(x))/(1+_np.exp(x-1))))
 	
 def softclip_grad(x):
 
-	return((-1+np.e)*np.exp(x))/((np.exp(x)+1)*(np.exp(x)+np.e))
+	return((-1+_np.e)*_np.exp(x))/((_np.exp(x)+1)*(_np.exp(x)+_np.e))
 
 def isru(x,a=1):
 
@@ -106,15 +106,15 @@ def isru_bound(a):
 
 def erf_grad(x):
 	
-	return (2/np.pi**0.5)*(np.exp(-x**2))
+	return (2/_np.pi**0.5)*(_np.exp(-x**2))
 
-def gelu_erf(x): #use scipy.special.erf/cupyx.scipy.special.erf
+def gelu_erf(x): #use scipy.special._erf/cupyx.scipy.special._erf
 	
-	return 0.5*x*(1+erf(x/sqrt2))
+	return 0.5*x*(1+_erf(x/sqrt2))
 
 def gelu_erf_grad(x):
 	
-	return 0.25*(sqrt2*x*erf_grad(x/sqrt2)+2*erf(x/sqrt2)+2)
+	return 0.25*(sqrt2*x*_erf_grad(x/sqrt2)+2*_erf(x/sqrt2)+2)
 
 
 '''
@@ -150,7 +150,7 @@ def get_binary_data(BINARY_DIM):
 
 def mean_squared_error(y, t):
 	
-	return 0.5 * np.sum((y-t+1e-6)**2)
+	return 0.5 * _np.sum((y-t+1e-6)**2)
 
 def cross_entropy_error(y, t):
 	if y.ndim == 1:
@@ -162,20 +162,20 @@ def cross_entropy_error(y, t):
 			 
 	batch_size = y.shape[0]
 	
-	return -np.sum(np.log(y[np.arange(batch_size), t] + 1e-6)) / batch_size
+	return -_np.sum(_np.log(y[_np.arange(batch_size), t] + 1e-6)) / batch_size
 
 def softmax(x):
 	if x.ndim == 2:
 		x = x.T
-		x = x - np.max(x, axis=0)
-		x = np.exp(x)
-		y = x / np.sum(x, axis=0)
+		x = x - _np.max(x, axis=0)
+		x = _np.exp(x)
+		y = x / _np.sum(x, axis=0)
 	
 		return y.T 
 	
-	x = x - np.max(x)
-	x = np.exp(x)
-	y = x / np.sum(x)
+	x = x - _np.max(x)
+	x = _np.exp(x)
+	y = x / _np.sum(x)
 	
 	return y
 
@@ -197,7 +197,7 @@ def numerical_gradient_n(f, x):
 	
 def numerical_gradient_1d(f, x):
 	h = 1e-4 # 0.0001
-	grad = np.zeros_like(x)
+	grad = _np.zeros_like(x)
 	
 	for idx in range(x.size):
 		tmp_val = x[idx]
@@ -216,7 +216,7 @@ def numerical_gradient_2d(f, X):
 	if X.ndim == 1:
 		return _numerical_gradient_1d(f, X)
 	else:
-		grad = np.zeros_like(X)
+		grad = _np.zeros_like(X)
 		
 		for idx, x in enumerate(X):
 			grad[idx] = _numerical_gradient_1d(f, x)
@@ -225,9 +225,9 @@ def numerical_gradient_2d(f, X):
 
 def numerical_gradient(f, x):
 	h = 1e-4 # 0.0001
-	grad = np.zeros_like(x)
+	grad = _np.zeros_like(x)
 	
-	it = np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])
+	it = _np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])
 	while not it.finished:
 		idx = it.multi_index
 		tmp_val = x[idx]
@@ -244,8 +244,8 @@ def numerical_gradient(f, x):
 	return grad
 
 def _change_one_hot_label(X,class_num = 10):
-	X = np.asarray(X)
-	T = np.zeros((X.size, class_num))
+	X = _np.asarray(X)
+	T = _np.zeros((X.size, class_num))
 	for idx, row in enumerate(T):
 		row[X[idx]] = 1
 
@@ -263,14 +263,14 @@ im2col col2im
 
 def smooth_curve(x):
 	window_len = 11
-	s = np.r_[x[window_len-1:0:-1], x, x[-1:-window_len:-1]]
-	w = np.kaiser(window_len, 2)
-	y = np.convolve(w/w.sum(), s, mode='valid')
+	s = _np.r_[x[window_len-1:0:-1], x, x[-1:-window_len:-1]]
+	w = _np.kaiser(window_len, 2)
+	y = _np.convolve(w/w.sum(), s, mode='valid')
 	
 	return y[5:len(y)-5]
 
 def shuffle_dataset(x, t):
-	permutation = np.random.permutation(x.shape[0])
+	permutation = _np.random.permutation(x.shape[0])
 	x = x[permutation,:] if x.ndim == 2 else x[permutation,:,:,:]
 	t = t[permutation]
 
@@ -280,14 +280,14 @@ def conv_output_size(input_size, filter_size, stride=1, pad=0):
 	
 	return (input_size + 2*pad - filter_size) / stride + 1
 
-def im2col(input_data, filter_h, filter_w, stride=1, pad=0, type=np.float32):
+def im2col(input_data, filter_h, filter_w, stride=1, pad=0, type=_np.float32):
 	N, C, H, W = input_data.shape
 	
 	out_h = (H + 2*pad - filter_h)//stride + 1
 	out_w = (W + 2*pad - filter_w)//stride + 1
 
-	img = np.pad(input_data, [(0,0), (0,0), (pad, pad), (pad, pad)], 'constant').astype(type)
-	col = np.zeros((N, C, filter_h, filter_w, out_h, out_w)).astype(type)
+	img = _np.pad(input_data, [(0,0), (0,0), (pad, pad), (pad, pad)], 'constant').astype(type)
+	col = _np.zeros((N, C, filter_h, filter_w, out_h, out_w)).astype(type)
 
 	for y in range(filter_h):
 		y_max = y + stride*out_h
@@ -299,14 +299,14 @@ def im2col(input_data, filter_h, filter_w, stride=1, pad=0, type=np.float32):
 	
 	return col
 
-def col2im(col, input_shape, filter_h, filter_w, stride=1, pad=0, type=np.float32):
+def col2im(col, input_shape, filter_h, filter_w, stride=1, pad=0, type=_np.float32):
 	N, C, H, W = input_shape
 	
 	out_h = (H + 2*pad - filter_h)//stride + 1
 	out_w = (W + 2*pad - filter_w)//stride + 1
 	
 	col = col.reshape(N, out_h, out_w, C, filter_h, filter_w).transpose(0, 3, 4, 5, 1, 2).astype(type)
-	img = np.zeros((N, C, H + 2*pad + stride - 1, W + 2*pad + stride - 1)).astype(type)
+	img = _np.zeros((N, C, H + 2*pad + stride - 1, W + 2*pad + stride - 1)).astype(type)
 	
 	for y in range(filter_h):
 		y_max = y + stride*out_h
@@ -332,13 +332,13 @@ def preprocess(text):
 			word_to_id[word] = new_id
 			id_to_word[new_id] = word
 			
-	corpus = np.array([word_to_id[w] for w in words])
+	corpus = _np.array([word_to_id[w] for w in words])
 	
 	return corpus, word_to_id, id_to_word
 	
 def Co_Matrix(corpus, amount, window_size=1):
 	corpus_size = len(corpus)
-	co_matrix = np.zeros((amount,amount), dtype=np.int32)
+	co_matrix = _np.zeros((amount,amount), dtype=_np.int32)
 	
 	for idx, word_id in enumerate(corpus):
 		for i in range(1, window_size+1):
@@ -356,10 +356,10 @@ def Co_Matrix(corpus, amount, window_size=1):
 	return co_matrix
 
 def cos_similarity(x,y):
-	nx = x / np.sqrt(np.sum(x**2))
-	ny = y / np.sqrt(np.sum(y**2))
+	nx = x / _np.sqrt(_np.sum(x**2))
+	ny = y / _np.sqrt(_np.sum(y**2))
 	
-	return np.dot(nx,ny)
+	return _np.dot(nx,ny)
 
 def most_similar(query, word_to_id, id_to_word, word_matrix, top=5):
 	
@@ -372,7 +372,7 @@ def most_similar(query, word_to_id, id_to_word, word_matrix, top=5):
 	query_vec = word_matrix[query_id]
 	
 	vocab_size = len(id_to_word)
-	similarity = np.zeros(vocab_size)
+	similarity = _np.zeros(vocab_size)
 	for i in range(vocab_size):
 		similarity[i] = cos_similarity(word_matrix[i], query_vec)
 	
@@ -388,16 +388,16 @@ def most_similar(query, word_to_id, id_to_word, word_matrix, top=5):
 			return
 
 def ppmi(C, verbose=False, eps=1e-8):
-	M = np.zeros_like(C, dtype=np.float64)
-	N = np.sum(C)
-	S = np.sum(C, axis=0)
+	M = _np.zeros_like(C, dtype=_np.float64)
+	N = _np.sum(C)
+	S = _np.sum(C, axis=0)
 	total = C.shape[0] * C.shape[1]
 	
 	cnt = 0
 	for i in range(C.shape[0]):
 		for j in range(C.shape[1]):
 			temp = (C[i,j]*N/(S[j]*S[i])+eps)
-			pmi = np.log2(temp)
+			pmi = _np.log2(temp)
 			M[i,j]=max(0, pmi)
 			if verbose:
 				cnt+=1
