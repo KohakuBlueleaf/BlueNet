@@ -393,8 +393,8 @@ class BatchNorm(Layer):
 		self.name = 'BatchNorm'
 		
 		#initialize
-		self.params['gamma'] = gamma
-		self.params['beta'] = beta
+		self.params['gamma'] = _np.array([gamma])
+		self.params['beta'] = _np.array([beta])
 		self.momentum = momentum
 		self.input_shape = None 			# Conv is 4d(N C H W), FCN is 2d(N D)
 		
@@ -416,7 +416,7 @@ class BatchNorm(Layer):
 		return out.reshape(*self.input_shape)
 			
 	def __forward(self, x):
-		gamma, beta = self.params['gamma'],self.params['beta']
+		gamma, beta = self.params['gamma'][0], self.params['beta'][0]
 
 		mu = x.mean(axis=0)
 		xc = x-mu
@@ -447,7 +447,7 @@ class BatchNorm(Layer):
 		gamma = self.params['gamma']
 		
 		dbeta = dout.sum(axis=0)
-		dgamma = _np.sum(self.xn*dout, axis=0)
+		dgamma = self.xn*dbeta
 		dxn = gamma*dout
 		dxc = dxn/self.std
 		dstd = -_np.sum((dxn*self.xc)/(self.std*self.std), axis=0)
@@ -456,8 +456,8 @@ class BatchNorm(Layer):
 		dmu = _np.sum(dxc, axis=0)
 		dx = dxc-dmu/self.batch_size
 		
-		self.grad['gamma'] = dgamma
-		self.grad['beta'] = dbeta
+		self.grad['gamma'] = _np.array([dgamma])  
+		self.grad['beta'] = _np.array([dbeta])
 		
 		return dx
 

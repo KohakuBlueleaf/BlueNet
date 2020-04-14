@@ -142,7 +142,10 @@ class Net:
 		
 		for i in range(self.layers):
 			for x in self.net[i].params.keys():
-				self.net[i].params[x] = self.net[i].params[x].astype(type)
+				try:
+					self.net[i].params[x] = self.net[i].params[x].astype(type)
+				except AttributeError:
+					pass
 		
 	#print the model(About layer/amount of parameter/FLOPS...)
 	def print_size(self):

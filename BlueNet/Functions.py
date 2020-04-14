@@ -89,25 +89,25 @@ def gelu_erf(x): #use scipy.special._erf/cupyx.scipy.special._erf
 	return 0.5*x*(1+_erf(x/sqrt2))
 
 def gelu_erf_grad(x):
-	return 0.25*(sqrt2*x*_erf_grad(x/sqrt2)+2*_erf(x/sqrt2)+2)
+	return 0.25*(sqrt2*x*erf_grad(x/sqrt2)+2*_erf(x/sqrt2)+2)
 
 
-'''
+''' 
 Other Functions
 '''
 
 def int_2_binary(number, binary_dim):
-    binary_list = list(map(lambda x: int(x), bin(number)[2:]))
-    number_dim = len(binary_list)
-    result_list = [0]*(binary_dim-number_dim)+binary_list
-    
+	binary_list = list(map(lambda x: int(x), bin(number)[2:]))
+	number_dim = len(binary_list)
+	result_list = [0]*(binary_dim-number_dim)+binary_list
+	
 	return result_list
 
 def binary2int(binary_array):
-    out = 0
-    for index, x in enumerate(reversed(binary_array)):
-        out += x * pow(2, index)
-    
+	out = 0
+	for index, x in enumerate(reversed(binary_array)):
+		out += x * pow(2, index)
+	
 	return out
 
 def get_binary_data(BINARY_DIM):
