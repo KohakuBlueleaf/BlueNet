@@ -14,13 +14,13 @@ dataset2={}
 dataset_dir = os.path.dirname(os.path.abspath(__file__))
 
 def load_cifar100(normalize=True, flatten=True, one_hot_label=False, smooth=False, type=np.float32):
-	with open(dataset_dir+'/data/cifar100_data/train1', 'rb',) as f:
+	with open(dataset_dir+'/data/cifar100_data/cifar100_data_train1', 'rb',) as f:
 		dataset1 = pickle.load(f,encoding='bytes')
 	
-	with open(dataset_dir+'/data/cifar100_data/train2', 'rb',) as f:
+	with open(dataset_dir+'/data/cifar100_data/cifar100_data_train2', 'rb',) as f:
 		dataset2 = pickle.load(f,encoding='bytes')
 	
-	with open(dataset_dir+'/data/cifar100_data/test', 'rb') as f:
+	with open(dataset_dir+'/data/cifar100_data/cifar100_data_test', 'rb') as f:
 		testset = pickle.load(f,encoding='bytes')
 	
 	dataset[b'data'] = np.hstack((dataset1[b'data'],dataset2[b'data']))

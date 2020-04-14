@@ -8,7 +8,7 @@ from BlueNet.Functions import _change_one_hot_label, label_smoothing
 
 
 dataset_dir = os.path.dirname(os.path.abspath(__file__))
-save_file = dataset_dir + "/data/mnist.pkl"
+save_file = dataset_dir + "/data/minst_data/mnist.pkl"
 
 train_num = 60000
 test_num = 10000
@@ -40,7 +40,3 @@ def load_mnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, t
 		dataset['test_label'] = label_smoothing(dataset['test_label'],0.01)
 	
 	return (dataset['train_img'], dataset['train_label']), (dataset['test_img'], dataset['test_label'])
-
-
-if __name__ == '__main__':
-	init_mnist()

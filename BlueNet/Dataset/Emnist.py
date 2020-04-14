@@ -14,10 +14,10 @@ testset = {}
 
 dataset_dir = os.path.dirname(os.path.abspath(__file__))
 file = {
-	'train_img':dataset_dir+'/data/emnist/emnist-letters-train-images-idx3-ubyte.gz',
-	'train_label':dataset_dir+'/data/emnist/emnist-letters-train-labels-idx1-ubyte.gz',
-	'test_img':dataset_dir+'/data/emnist/emnist-letters-test-images-idx3-ubyte.gz',
-	'test_label':dataset_dir+'/data/emnist/emnist-letters-test-labels-idx1-ubyte.gz'
+	'train_img':dataset_dir+'/data/emnist_data/emnist-train-images.gz',
+	'train_label':dataset_dir+'/data/emnist_data/emnist-train-labels.gz',
+	'test_img':dataset_dir+'/data/emnist_data/emnist-test-images.gz',
+	'test_label':dataset_dir+'/data/emnist_data/emnist-test-labels.gz'
 }
 
 def load_labels(file):

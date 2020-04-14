@@ -8,7 +8,7 @@ from BlueNet.Functions import _change_one_hot_label,label_smoothing
 
 
 dataset_dir = os.path.dirname(os.path.abspath(__file__))
-file = dataset_dir+'/data/cifar_data/data_batch_'
+file = dataset_dir+'/data/cifar_data/cifar_batch_'
 
 def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False, type=np.float32):
 	dataset = {}
@@ -27,7 +27,7 @@ def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False, 
 	with open(file+str(5), 'rb',) as f:
 		dataset5 = pickle.load(f,encoding='bytes')
 	
-	with open(dataset_dir+'/data/cifar_data/test_batch', 'rb') as f:
+	with open(dataset_dir+'/data/cifar_data/cifar_test_batch', 'rb') as f:
 		testset = pickle.load(f,encoding='bytes')
 	
 	dataset[b'data'] = np.vstack((dataset1[b'data'],dataset2[b'data'],dataset3[b'data'],dataset4[b'data'],dataset5[b'data']))

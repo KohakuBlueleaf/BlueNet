@@ -1,0 +1,42 @@
+BlueNet/
+├── BlueNet/
+│	├── Dataset/
+│	│	├── data/
+│	│	│	├── cifar_data/
+│	│	│	│	├── cifar_data_batch_1
+│	│	│	│	├── cifar_data_batch_2
+│	│	│	│	├── cifar_data_batch_3
+│	│	│	│	├── cifar_data_batch_4
+│	│	│	│	├── cifar_data_batch_5
+│	│	│	│	└── cifar_test_batch
+│	│	│	│	
+│	│	│	├── cifar100_data/
+│	│	│	│	├── cifar100_data_test
+│	│	│	│	├── cifar100_data_train1
+│	│	│	│	└── cifar100_data_train2
+│	│	│	│
+│	│	│	├── emnist_data/
+│	│	│	│	├── emnist-test-images.gz
+│	│	│	│	├── emnist-test-labels.gz
+│	│	│	│	├── emnist-train-images.gz
+│	│	│	│	└── emnist-train-labels.gz
+│	│	│	│
+│	│	│	└── mnist_data/	
+│	│	│		└── mnist.pkl
+│	│	│
+│	│	├── __init__.py
+│	│	├── Cifar.py
+│	│	├── Cifar100.py
+│	│	├── Emnist.py
+│	│	└── Mnist.py
+│	│
+│	├── __init__.py
+│	├── Network.py
+│	├── Layer.py
+│	├── Activation.py
+│	├── Optimizer.py
+│	├── Functions.py
+│	├── UsualModel.py
+│	└── setting.py
+│
+└── setup.py 
