@@ -8,30 +8,23 @@ from BlueNet.Functions import _change_one_hot_label,label_smoothing
 
 
 dataset_dir = os.path.dirname(os.path.abspath(__file__))
-file = dataset_dir+'/data/cifar_data/cifar_batch_'
+file = dataset_dir+'/data/cifar_data/cifar_data_batch_'
 
 def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False, type=np.float32):
 	dataset = {}
-	with open(file+str(1), 'rb',) as f:
-		dataset1 = pickle.load(f,encoding='bytes')
+	with open(file+'01', 'rb') as f:
+		dataset1 = pickle.load(f)
 	
-	with open(file+str(2), 'rb',) as f:
-		dataset2 = pickle.load(f,encoding='bytes')
-	
-	with open(file+str(3), 'rb',) as f:
-		dataset3 = pickle.load(f,encoding='bytes')
-	
-	with open(file+str(4), 'rb',) as f:
-		dataset4 = pickle.load(f,encoding='bytes')
-	
-	with open(file+str(5), 'rb',) as f:
-		dataset5 = pickle.load(f,encoding='bytes')
+	with open(file+'02', 'rb') as f:
+		dataset2 = pickle.load(f)
 	
 	with open(dataset_dir+'/data/cifar_data/cifar_test_batch', 'rb') as f:
 		testset = pickle.load(f,encoding='bytes')
 	
-	dataset[b'data'] = np.vstack((dataset1[b'data'],dataset2[b'data'],dataset3[b'data'],dataset4[b'data'],dataset5[b'data']))
-	dataset[b'labels'] = np.hstack((dataset1[b'labels'],dataset2[b'labels'],dataset3[b'labels'],dataset4[b'labels'],dataset5[b'labels']))
+	dataset[b'data'] = np.asarray(np.vstack((dataset1[b'data'],dataset2[b'data'])))
+	dataset[b'labels'] = np.asarray(np.hstack((dataset1[b'labels'],dataset2[b'labels'])))
+	testset[b'data'] = np.asarray(testset[b'data'])
+	testset[b'labels'] = np.asarray(testset[b'labels'])
 	
 	if normalize:
 		dataset[b'data'] = dataset[b'data'].astype(type)
@@ -57,5 +50,9 @@ def load_cifar(normalize=True, flatten=True, one_hot_label=False, smooth=False, 
 
 
 if __name__ == '__main__':
-	(a,b),(c,d) = load_cifar(False,False,True)
-	print(a.shape,b.shape)
+	(A,B),(C,D) = load_cifar()
+	print(A.shape)
+	print(B.shape)
+	print(C.shape)
+	print(D.shape)
+	

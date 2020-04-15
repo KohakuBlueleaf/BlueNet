@@ -8,36 +8,37 @@ all_files = {}
 data_files = []
 queue = []
 
-path = 'BlueNet/Dataset'
-Dataset = listdir(path)
-for i in Dataset:
-	queue.append((path,i))
+try:
+	path = 'BlueNet/Dataset'
+	Dataset = listdir(path)
+	for i in Dataset:
+		queue.append((path,i))
 
-while queue:
-	path,now = queue.pop(0)
-	this = '{}/{}'.format(path,now)
-	if os.path.isdir(this):
-		for i in listdir(this):
-			queue.append((this,i))
-	else:
-		target_dir = package_path+path[15:]
-		
-		if target_dir not in all_files:
-			all_files[target_dir]=[]
-		all_files[target_dir].append(this)
+	while queue:
+		path,now = queue.pop(0)
+		this = '{}/{}'.format(path,now)
+		if os.path.isdir(this):
+			for i in listdir(this):
+				queue.append((this,i))
+		else:
+			target_dir = package_path+path[15:]
+			
+			if target_dir not in all_files:
+				all_files[target_dir]=[]
+			all_files[target_dir].append(this)
 
-for i in all_files:
-	data_files.append((i,all_files[i]))
+	for i in all_files:
+		data_files.append((i,all_files[i]))
+except:
+	pass
 
 setup(
 	name = 'BlueNet',
 	packages = ['BlueNet'],
 	data_files = data_files,
-	version = 'beta-1.0',
+	version = '1.0',
 	description = 'My first project',
 	author = 'BlueLeaf',
 	author_email = 'apolloyeh0123@gmail.com',
 	keywords = ['Neural Network'],
 )
-
-run(['rm','-R','build'])
