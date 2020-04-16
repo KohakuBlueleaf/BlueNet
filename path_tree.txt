@@ -3,8 +3,11 @@ BlueNet/
 │	├── Dataset/
 │	│	├── data/
 │	│	│	├── cifar_data/
-│	│	│	│	├── cifar_data_batch_01
-│	│	│	│	├── cifar_data_batch_02
+│	│	│	│	├── cifar_data_batch_1
+│	│	│	│	├── cifar_data_batch_2
+│	│	│	│	├── cifar_data_batch_3
+│	│	│	│	├── cifar_data_batch_4
+│	│	│	│	├── cifar_data_batch_5
 │	│	│	│	└── cifar_test_batch
 │	│	│	│	
 │	│	│	├── cifar100_data/
