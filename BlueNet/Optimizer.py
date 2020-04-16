@@ -22,7 +22,6 @@ class SGD:
 
 	def __init__(self, lr=0.01):
 		self.lr = lr
-		self.normalization = normalization
 		
 	def update(self, params, grads):
 		for key in params.keys():
@@ -37,7 +36,6 @@ class Momentum:
 		self.lr = lr
 		self.momentum = momentum
 		self.v = None
-		self.normalization = normalization
 		
 	def update(self, params, grads):
 		if self.v is None:
@@ -58,7 +56,6 @@ class Nesterov:
 		self.lr = lr
 		self.momentum = momentum
 		self.v = None
-		self.normalization = normalization
 		
 	def update(self, params, grads):
 		if self.v is None:
@@ -80,7 +77,6 @@ class AdaGrad:
 	def __init__(self, lr=0.01):
 		self.lr = lr
 		self.h = None
-		self.normalization = normalization
 		
 	def update(self, params, grads):
 		if self.h is None:
@@ -101,7 +97,6 @@ class RMSprop:
 		self.lr = lr
 		self.decay_rate = decay_rate
 		self.h = None
-		self.normalization = normalization
 		
 	def update(self, params, grads):
 		if self.h is None:

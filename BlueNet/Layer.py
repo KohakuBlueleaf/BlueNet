@@ -618,7 +618,10 @@ class ResBlock:
 	
 	def train(self):
 		for i in self.layers:
-			i.optimizer.update(i.params,i.grad)
+			try:
+				i.optimizer.update(i.params,i.grad)
+			except AttributeError:
+				pass
 		
 		if self.use_conv:
 			self.Conv.optimizer.update(self.Conv.params,self.Conv.grad)
