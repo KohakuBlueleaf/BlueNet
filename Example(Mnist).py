@@ -15,22 +15,21 @@ from BlueNet.UsualModel import LeNet
 ## load train set and test set                    Normalize Flat One-hot Smooth type
 
 model = [
-			Conv({'f_num':6, 'f_size':5, 'pad':2, 'stride':1}),
-			Pool(2,2,2),
-			Conv({'f_num':16, 'f_size':5, 'pad':0, 'stride':1}),
-			Pool(2,2,2),
-			Conv({'f_num':120, 'f_size':5, 'pad':0, 'stride':1}),
-			Flatten(),
-			Dense(output_size=84),
-			Dense(output_size=10),
-				
-			SoftmaxWithLoss()
+		Conv({'f_num':6, 'f_size':5, 'pad':2, 'stride':1}),
+		Pool(2,2,2),
+		Conv({'f_num':16, 'f_size':5, 'pad':0, 'stride':1}),
+		Pool(2,2,2),
+		Conv({'f_num':120, 'f_size':5, 'pad':0, 'stride':1}),
+		Flatten(),
+		Dense(output_size=84),
+		Dense(output_size=10),
+		SoftmaxWithLoss()
 		]
 			
 net = Net(LeNet, (1,28,28), GELU, Adam, 0.001, 0, 'xaiver', np.float32)
 net.update()
 
-#net.print_size()
+net.print_size()
 
 batch_size = 300
 train_size = x_train.shape[0]
