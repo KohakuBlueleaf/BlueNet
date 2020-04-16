@@ -8,7 +8,7 @@ from BlueNet.Functions import _change_one_hot_label, label_smoothing
 
 
 dataset_dir = os.path.dirname(os.path.abspath(__file__))
-save_file = dataset_dir + "/data/minst_data/mnist.pkl"
+save_file = dataset_dir + "/data/mnist_data/mnist.pkl"
 
 train_num = 60000
 test_num = 10000

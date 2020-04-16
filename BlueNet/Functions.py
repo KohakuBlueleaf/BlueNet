@@ -92,16 +92,32 @@ def gelu_erf_grad(x):
 	return 0.25*(sqrt2*x*erf_grad(x/sqrt2)+2*_erf(x/sqrt2)+2)
 
 
+
 ''' 
 Other Functions
 '''
 
-def int_2_binary(number, binary_dim):
-	binary_list = list(map(lambda x: int(x), bin(number)[2:]))
-	number_dim = len(binary_list)
-	result_list = [0]*(binary_dim-number_dim)+binary_list
+def zca_whiten(X):
+	sigma = _np.cov(X, rowvar=True)
+	U,S,V = _np.linalg.svd(sigma)
+	ZCAMatrix = _np.dot(U, _np.dot(_np.diag(1.0/_np.sqrt(S + 1e-7)), U.T)) 
 	
-	return result_list
+	return ZCAMatrix.dot(X)
+
+def pca_whiten(X):
+   Xcov = _np.dot(X.T,X)
+   d, V = _np.linalg.eigh(Xcov)
+   D = _np.diag(1 / _np.sqrt(d+1e-7))
+   W = _np.dot(_np.dot(V, D), V.T)
+   X_white = _np.dot(X, W)
+
+   return X_white
+
+def int_2_binary(number, binary_dim):
+	binary_list = [int(i) for i in bin(number)[2:]]
+	more_length = binary_dim - len(binary_list)
+	
+	return _np.assary([0]*more_length+binary_list)
 
 def binary2int(binary_array):
 	out = 0

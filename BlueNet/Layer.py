@@ -628,6 +628,7 @@ class ResBlock:
 		path = './weight/new/Res_'+name+'/'
 		if not os.path.isdir(path):
 			os.mkdir(path)
+		
 		path = '/Res_'+name
 		
 		for i in self.layers:
@@ -646,6 +647,7 @@ class ResBlock:
 		path = './weight/new/Res_'+name+'/'
 		if not os.path.isdir(path):
 			os.mkdir(path)
+		
 		path = '/Res_'+name
 		
 		for i in self.layers:
