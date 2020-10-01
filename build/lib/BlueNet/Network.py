@@ -13,19 +13,10 @@ import sys,os
 import numpy
 
 
-path = "./weight"
-if not os.path.isdir(path):
-	os.mkdir(path)
-path = "./weight/new"
-if not os.path.isdir(path):
-	os.mkdir(path)
-
 rn = _np.random.randn
 D3 = {'Conv','DeConv','ResLayer','Flatten'}
 D2 = {'Dense'}
 PRE = {'Conv','DeConv','ResLayer','Softmax'}
-
-RMS = lambda x,y:(sum((x-y)**2)/len(x))**0.5
 
 class Net:
 	
@@ -238,7 +229,7 @@ class Net:
 		return error
 	
 	#Train consist of forward, backtrain, call the optimizer
-	def train(self,input,t,loss_function=RMS):
+	def train(self,input,t,loss_function=cross_entropy_error):
 		output = self.forward(input, t)					#forward(get the loss)
 		if self.net[-1].name!='Softmax':
 			loss = loss_function(output,t)
