@@ -12,12 +12,20 @@ from copy import copy,deepcopy
 import sys,os
 import numpy
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 rn = _np.random.randn
 D3 = {'Conv','DeConv','ResLayer','Flatten'}
 D2 = {'Dense'}
 PRE = {'Conv','DeConv','ResLayer','Softmax'}
 
+<<<<<<< HEAD
+RMS = lambda x,y:(sum((x-y)**2)/len(x))**0.5
+
+=======
+>>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 class Net:
 	
 	def __init__(self, network=LeNet, data_shape=(1,28,28), AF=Relu, optimizer=Adam, rate=0.001\
@@ -27,6 +35,105 @@ class Net:
 		for i in network:
 			self.net.append(i)
 		self.layers = len(network)																	#amount of layers
+<<<<<<< HEAD
+		
+		#initial process
+		init = rn(data_shape[0],data_shape[1],data_shape[2])						 			#data for initial
+		j = 0
+		for i in range(self.layers):
+			name = self.net[i].name
+			
+			if j == 0:
+				#set the shape of data. Falt the data if first layer is dense
+				if name in D3:
+					init = init.reshape(1,init.shape[0],init.shape[1],init.shape[2])
+				elif name in D2:
+					init = init.reshape(1,init.size)
+			
+			self.net[i].shapeIn = init.shape[1:]												#save the input shape
+			
+			if init_mode == 'xaiver':
+				init_std = 1/(init.size**0.5)
+			
+			self.net[i].optimizer = optimizer(rate)												#set Optimizer
+			if not self.net[i].AF:
+				self.net[i].AF = AF()
+			self.net[i].type = type
+			
+			#Convolution
+			if name == 'Conv' or name == 'DeConv':
+				self.net[i].params['b'] *= init_std
+				FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
+
+				#Convolution
+				if name == 'Conv':
+					self.net[i].params['W'] = init_std * rn(FN, C, S, S)						#weight's shape is (F_num,input_channel,F_size,F_Size)
+					out = self.net[i].forward(init)												#data to set next layer
+					
+					N, out_C, out_H, out_W = out.shape
+					self.net[i].flops = ((C*S**2))*out_H*out_W*out_C							#caculate the FLOPs
+					self.net[i].size = FN*C*S*S + FN											#caculate the amount of parameters
+				
+				#Transpose Convolution
+				else:
+					self.net[i].params['W'] = init_std * rn(C, FN, S, S)						#weight's shape is (Input_channel,F_Num,F_size,F_Size)
+					out = self.net[i].forward(init)												#data to set next layer
+					
+					N, out_C, out_H, out_W = out.shape
+					self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C							#caculate the FLOPs
+					self.net[i].size = self.net[i].params['W'].size								#caculate the amount of parameters
+			
+				init = out
+			
+			#Fully connected layer
+			elif name == 'Dense':
+				out_size = self.net[i].output_size
+				self.net[i].params['W'] = init_std*rn(init.size, out_size)						#weight's shape is (input_size,output_size)
+				self.net[i].params['b'] *= init_std
+				self.net[i].params['b'] = self.net[i].params['b']
+				self.net[i].flops = init.shape[1]*out_size										#caculate the FLOPs
+				self.net[i].size = init.size*out_size + out_size								#caculate the amount of parameters
+				
+			#ResLayer(Block of ResNet)
+			elif name == 'ResLayer':
+				self.net[i].AF = AF																#set Activation Function
+				init = self.net[i].initial(init,init_std,init_mode,AF,optimizer,rate,type)		#see layer.py(In fact the function is same as here)
+			
+			elif name == 'TimeLSTM':
+				T = init.shape[1]
+				D = init.shape[2]
+				H = self.net[i].node
+				self.net[i].params['Wx'] = rn(D, 4*H)*init_std
+				self.net[i].params['Wh'] = rn(H, 4*H)*init_std
+				self.net[i].params['b'] = _np.ones(4*H)*init_std
+				self.net[i].flops = T*D*4*H+T*H*4*H												#caculate the FLOPs
+				self.net[i].size = (D+H+1)*4*H
+			
+			elif name == 'TimeGRU':
+				T = init.shape[1]
+				D = init.shape[2]
+				H = self.net[i].node
+				self.net[i].params['Wx'] = rn(D, 3*H)*init_std
+				self.net[i].params['Wh'] = rn(H, 3*H)*init_std
+				self.net[i].params['b'] = _np.ones(3*H)*init_std
+				self.net[i].flops = T*D*3*H+T*H*3*H												#caculate the FLOPs
+				self.net[i].size = (D+H+1)*3*H
+			
+			else:
+				pass
+			
+			#these layers don't need to caculate the data for next layer so we just skip it
+			if name not in PRE:
+				try:
+					init = self.net[i].forward(init)
+				except:
+					print(init.shape)
+					print(self.net[i].params['W'].shape)
+			
+			#save the output shape
+			self.net[i].shapeOut = init.shape[1:]
+			j += 1
+=======
 		Ini = True																					#Initialized or not
 		
 		#if any layer's parameters haven't been setted, set Ini=False to run the initial process
@@ -142,6 +249,7 @@ class Net:
 				j += 1
 		else:
 			pass
+>>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 		
 		for i in range(self.layers):
 			try:
@@ -194,16 +302,29 @@ class Net:
 		return input
 		
 	#forward process. DropOut is set ON. SoftmaxWithLoss return the loss
+<<<<<<< HEAD
+	def forward(self,input,t=None,loss_function=None):
+		input = _np.asarray(input)
+		if t is not None:
+			t = _np.asarray(t)
+=======
 	def forward(self,input,t=None):
 		input = _np.asarray(input)
 		t = _np.asarray(t)
+>>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 		for i in range(self.layers):
 			if self.net[i].name != 'Softmax':
 				input = self.net[i].forward(input)
 			else:
 				input = self.net[i].forward(input,t)
 				return input
+<<<<<<< HEAD
+		if loss_function and t:
+			return input,loss_function(input,t)
+			
+=======
 		
+>>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 		return input
 	
 	#Backpropagation (will save the gradients)
@@ -229,7 +350,11 @@ class Net:
 		return error
 	
 	#Train consist of forward, backtrain, call the optimizer
+<<<<<<< HEAD
+	def train(self,input,t,loss_function=RMS):
+=======
 	def train(self,input,t,loss_function=cross_entropy_error):
+>>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 		output = self.forward(input, t)					#forward(get the loss)
 		if self.net[-1].name!='Softmax':
 			loss = loss_function(output,t)

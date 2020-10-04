@@ -154,9 +154,15 @@ def cross_entropy_error(y, t):
 	
 	return -_np.sum(_np.log(y[_np.arange(batch_size), t] + 1e-6)) / batch_size
 
+<<<<<<< HEAD
+def RMS(y, t):
+	return _np.sum(((y-t)**2/t.size)**0.5)
+
+=======
 def RMS(y,t):
 	return (sum((y-t)**2)/t.size)**0.5
 	
+>>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 def softmax(x):
 	if x.ndim == 2:
 		x = x.T
@@ -397,4 +403,8 @@ def ppmi(C, verbose=False, eps=1e-8):
 	
 	print('100.0% done')
 	
+<<<<<<< HEAD
 	return M
+=======
+	return M
+>>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df

@@ -21,11 +21,14 @@ rn = _np.random.randn
 sqrt = lambda x: x**0.5
 
 class Layer:
-	def __init__(self, AF=GELU, rate=0.001, optimizer=Adam, type=None):
+	def __init__(self, AF=None, rate=0.001, optimizer=Adam, type=None):
 		self.shapeIn = None													#shape of data(IN)
 		self.shapeOut = None												#shape of data(OUT)
 		
-		self.AF = AF()														#activation function
+		if AF:
+			self.AF = AF()													#activation function
+		else:
+			self.AF = None
 		self.optimizer = optimizer(lr=rate)									#Optimizer
 		self.size = 0														#amount of params(Weight+bias)
 		self.flops = 0
@@ -85,8 +88,8 @@ class Dense(Layer):
 	Full Conected Layer
 	'''
 	
-	def __init__(self, output_size, AF=Elu, rate=0.01, optimizer=Adam, type=_np.float32):
-		super(Dense, self).__init__(AF,rate,optimizer,type)
+	def __init__(self, output_size, AF=None):
+		super(Dense, self).__init__(AF=AF)
 		self.name = 'Dense'
 		
 		#initialize
@@ -127,8 +130,8 @@ class Conv(Layer):
 	Convolution Layer
 	'''
 	
-	def __init__(self, conv_param, AF=Elu, rate=0.01, optimizer=Adam, type=_np.float32):
-		super(Conv, self).__init__(AF, rate, optimizer, type)
+	def __init__(self, conv_param, AF=None):
+		super(Conv, self).__init__(AF=AF)
 		self.name = 'Conv'
 		
 		#Initialize
@@ -194,8 +197,8 @@ class DeConv(Layer):
 	The forward of DeConv is the same as Convolution's backward and backward is the same as conv's forward too.
 	'''
 	
-	def __init__(self, conv_param, AF=Elu, rate=0.1, optimizer=Adam, type=_np.float32):
-		super(DeConv, self).__init__(AF, rate, optimizer, type)
+	def __init__(self, conv_param, AF=None):
+		super(DeConv, self).__init__(AF=AF)
 		self.name = 'DeConv'
 		
 		#Initialize
@@ -521,6 +524,7 @@ class ResBlock:
 		init = data
 		
 		for i in range(len(self.layer)):
+			self.layer[i].AF = ID()
 			if init_mode == 'xaiver':
 				init_std = 1/(init.size**0.5)
 			
@@ -592,8 +596,7 @@ class ResBlock:
 					self.Conv.params['W'] = init_std*rn(FN,C,1,1).astype(type)
 					self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
 					
-					#set Activation Functions & optimizer
-					self.Conv.AF = ID()
+					#set optimizer
 					self.Conv.optimizer = optimizer(rate)
 					
 					#Caculate the FLOPs & Amount of params
@@ -613,8 +616,7 @@ class ResBlock:
 					self.Conv.params['W'] = init_std*rn(FN,C,1,1).astype(type)
 					self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
 					
-					#set Activation Functions & optimizer
-					self.Conv.AF = ID()
+					#set optimizer
 					self.Conv.optimizer = optimizer(rate)
 					
 					#Caculate the FLOPs & Amount of params
