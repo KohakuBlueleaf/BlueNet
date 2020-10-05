@@ -12,10 +12,6 @@ from BlueNet.Activation import GELU
 from BlueNet.Optimizer import Adam
 from BlueNet.UsualModel import LeNet
 from BlueNet.Functions import cross_entropy_error
-<<<<<<< HEAD
-=======
-
->>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 
 ## load train set and test set                    Normalize Flat One-hot Smooth type
 (x_train,t_train),(x_test,t_test) = mnist.load_mnist(True, False, True, False, np.float32)
@@ -56,11 +52,7 @@ for j in range(Epoch):
         t_batch = t_train[batch_mask]
         
         loss = net.train(x_batch, t_batch)					    #Train&Caculate the loss of the net
-<<<<<<< HEAD
-        print('│ Epoch %2d  Loss:%5f  │  '%(j+1,loss), end='\r', flush=True)
-=======
         print('│ Epoch {:<4}  Loss     :{}│  '.format(j+1,str(loss)[:5]), end='\r', flush=True)
->>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
     
     cost = time.time()-start
     test_acc = net.accuracy(x_test, t_test, batch_size)

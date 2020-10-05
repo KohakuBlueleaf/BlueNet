@@ -12,20 +12,11 @@ from copy import copy,deepcopy
 import sys,os
 import numpy
 
-<<<<<<< HEAD
-=======
-
->>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 rn = _np.random.randn
 D3 = {'Conv','DeConv','ResLayer','Flatten'}
 D2 = {'Dense'}
 PRE = {'Conv','DeConv','ResLayer','Softmax'}
 
-<<<<<<< HEAD
-RMS = lambda x,y:(sum((x-y)**2)/len(x))**0.5
-
-=======
->>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 class Net:
 	
 	def __init__(self, network=LeNet, data_shape=(1,28,28), AF=Relu, optimizer=Adam, rate=0.001\
@@ -66,14 +57,12 @@ class Net:
 
 				#Convolution
 				if name == 'Conv':
-					self.net[i].params['W'] = init_std * rn(FN, C, S, S)						#weight's shape is (F_num,input_channel,F_size,F_Size)
-					out = self.net[i].forward(init)												#data to set next layer
-					
-<<<<<<< HEAD
+					self.net[i].params['W'] = init_std * rn(FN, C, S, S)#weight's shape is (F_num,input_channel,F_size,F_Size)
+					out = self.net[i].forward(init)					#data to set next layer
 					N, out_C, out_H, out_W = out.shape
-					self.net[i].flops = ((C*S**2))*out_H*out_W*out_C							#caculate the FLOPs
-					self.net[i].size = FN*C*S*S + FN											#caculate the amount of parameters
-=======
+					self.net[i].flops = ((C*S**2))*out_H*out_W*out_C	#caculate the FLOPs
+					self.net[i].size = FN*C*S*S + FN	#caculate the amount of parameters
+					
 				#ResLayer(Block of ResNet)
 				elif name == 'ResLayer':
 					self.net[i].AF = AF																#set Activation Function
@@ -107,7 +96,6 @@ class Net:
 					self.net[i].params['b'] = _np.ones(3*H)*init_std
 					self.net[i].flops = T*D*3*H+T*H*3*H												#caculate the FLOPs
 					self.net[i].size = (D+H+1)*3*H
->>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 				
 				#Transpose Convolution
 				else:
@@ -230,13 +218,10 @@ class Net:
 			else:
 				input = self.net[i].forward(input,t)
 				return input
-<<<<<<< HEAD
-		if loss_function and t:
+				
+		if loss_function is not None and t is not None:
 			return input,loss_function(input,t)
-			
-=======
 		
->>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 		return input
 	
 	#Backpropagation (will save the gradients)
@@ -262,11 +247,7 @@ class Net:
 		return error
 	
 	#Train consist of forward, backtrain, call the optimizer
-<<<<<<< HEAD
-	def train(self,input,t,loss_function=RMS):
-=======
 	def train(self,input,t,loss_function=cross_entropy_error):
->>>>>>> da10f251a15fb6cd310d28bd610eb7f292a025df
 		output = self.forward(input, t)					#forward(get the loss)
 		if self.net[-1].name!='Softmax':
 			loss = loss_function(output,t)
