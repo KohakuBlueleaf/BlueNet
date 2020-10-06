@@ -434,7 +434,7 @@ class BatchNorm(Layer):
 		return out.reshape(*self.input_shape)
 			
 	def __forward(self, x):
-		gamma, beta = self.params['gamma'][0], self.params['beta'][0]
+		gamma, beta = self.params['gamma'], self.params['beta']
 
 		mu = x.mean(axis=0)
 		xc = x-mu
