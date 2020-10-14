@@ -74,8 +74,6 @@ class Net:
 				init = out
 					
 			elif name == 'BatchNorm':
-				self.net[i].params['gamma'] = 1
-				self.net[i].params['beta'] = 0
 				self.net[i].size = 2
 			
 			#ResLayer(Block of ResNet)

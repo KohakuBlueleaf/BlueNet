@@ -406,22 +406,19 @@ class BatchNorm(Layer):
 	BatchNormalization
 	'''
 	
-	def __init__(self, gamma=1.0, beta=0.0, momentum=0.9, running_mean=None, running_var=None, optimizer=Adam, rate=0.001):
-		super(BatchNorm, self).__init__(optimizer=optimizer, rate=rate)
+	def __init__(self, gamma=1.0, beta=0.0):
+		super(BatchNorm, self).__init__()
 		self.name = 'BatchNorm'
 		
 		#initialize
-		self.params['gamma'] = _np.array([gamma])
-		self.params['beta'] = _np.array([beta])
-		self.momentum = momentum
+		self.gamma = gamma
+		self.beta = beta
 		self.input_shape = None 			# Conv is 4d(N C H W), FCN is 2d(N D)
 		
 		# backward data
 		self.batch_size = None
 		self.xc = None
 		self.std = None
-		self.grad['gamma'] = None
-		self.grad['beta'] = None
 	
 	def forward(self, x):
 		self.input_shape = x.shape
@@ -434,7 +431,7 @@ class BatchNorm(Layer):
 		return out.reshape(*self.input_shape)
 			
 	def __forward(self, x):
-		gamma, beta = self.params['gamma'], self.params['beta']
+		gamma, beta = self.gamma, self.beta
 
 		mu = x.mean(axis=0)
 		xc = x-mu
@@ -447,7 +444,7 @@ class BatchNorm(Layer):
 		self.xn = xn
 		self.std = std
 			
-		out = gamma*xn+beta 
+		out = gamma*xn+beta
 		
 		return out
 
@@ -462,7 +459,7 @@ class BatchNorm(Layer):
 		return dx
 	
 	def __backward(self, dout):
-		gamma = self.params['gamma']
+		gamma = self.gamma
 		
 		dbeta = dout.sum(axis=0)
 		dgamma = self.xn*dbeta
@@ -473,9 +470,6 @@ class BatchNorm(Layer):
 		dxc += (2.0/self.batch_size)*self.xc*dvar
 		dmu = _np.sum(dxc, axis=0)
 		dx = dxc-dmu/self.batch_size
-		
-		self.grad['gamma'] = _np.array([dgamma])  
-		self.grad['beta'] = _np.array([dbeta])
 		
 		return dx
 
