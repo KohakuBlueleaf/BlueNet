@@ -23,22 +23,6 @@ ReLU/Leaky ReLU/Elu/GELU/ISRLU/Softplus
 SGD/Momentum/Nesterov/AdaGrad/RMSprop/Adam
 
 ## How to install:
-
-### Without sample database(Mnist/Emnist/Cifar):
-Linux:
-```
-python3 -m pip install BlueNet
-```
-or
-```
-pip3 install BlueNet
-```
-Windows:
-```
-python -m pip install BlueNet
-```
-
-### With sample database:
 ```
 git clone https://github.com/KohakuBlueleaf/BlueNet.git
 cd BlueNet

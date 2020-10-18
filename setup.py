@@ -1,6 +1,5 @@
 import os
 from os import listdir
-from subprocess import run
 from distutils.core import setup
 
 package_path = 'Lib/site-packages/BlueNet/Dataset'
@@ -36,8 +35,8 @@ setup(
 	name = 'BlueNet',
 	packages = ['BlueNet'],
 	data_files = data_files,
-	version = '1.0',
-	description = 'My first project',
+	version = '1.1',
+	description = 'A neural network package based on numpy',
 	author = 'BlueLeaf',
 	author_email = 'apolloyeh0123@gmail.com',
 	keywords = ['Neural Network'],
