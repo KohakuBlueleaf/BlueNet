@@ -105,13 +105,13 @@ def zca_whiten(X):
 	return ZCAMatrix.dot(X)
 
 def pca_whiten(X):
-   Xcov = _np.dot(X.T,X)
-   d, V = _np.linalg.eigh(Xcov)
-   D = _np.diag(1 / _np.sqrt(d+1e-7))
-   W = _np.dot(_np.dot(V, D), V.T)
-   X_white = _np.dot(X, W)
+	Xcov = _np.dot(X.T,X)
+	d, V = _np.linalg.eigh(Xcov)
+	D = _np.diag(1 / _np.sqrt(d+1e-7))
+	W = _np.dot(_np.dot(V, D), V.T)
+	X_white = _np.dot(X, W)
 
-   return X_white
+	return X_white
 
 def int_2_binary(number, binary_dim):
 	binary_list = [int(i) for i in bin(number)[2:]]
