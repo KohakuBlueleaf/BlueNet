@@ -52,7 +52,7 @@ for j in range(Epoch):
         t_batch = t_train[batch_mask]
         
         loss = net.train(x_batch, t_batch)					    #Train&Caculate the loss of the net
-        print('│ Epoch {:<4}  Loss     :{}│  '.format(j+1,str(loss)[:5]), end='\r', flush=True)
+        #print('│ Epoch {:<4}  Loss     :{}│  '.format(j+1,str(loss)[:5]), end='\r', flush=True)
     
     cost = time.time()-start
     test_acc = net.accuracy(x_test, t_test, batch_size)
@@ -62,9 +62,9 @@ for j in range(Epoch):
         max_acc = test_acc 
         net.save()                                                 #Save the parameters
     
-    print("│ Epoch {:<4}  Test Acc :{}│  ".format(j+1,str(test_acc*100)[:5]))
-    print("│             Train Acc:{}│  ".format(str(train_acc*100)[:5]))
-    print("│             Cost Time:{}│  ".format(str(cost)[:5]))
+    print("│ Epoch {:<4}  Test Acc :{:<5}│  ".format(j+1,str(test_acc*100)[:5]))
+    print("│             Train Acc:{:<5}│  ".format(str(train_acc*100)[:5]))
+    print("│             Cost Time:{:<5}│  ".format(str(cost)[:5]))
     
 print('└────────────────────────────┘  ')
 
