@@ -155,7 +155,7 @@ def cross_entropy_error(y, t):
 	return -_np.sum(_np.log(y[_np.arange(batch_size), t] + 1e-6)) / batch_size
 
 def RMS(y, t):
-	return _np.sum(((y-t)**2/t.size)**0.5)
+	return _np.sum(_np.sqrt((y-t)**2/t.size))
 	
 def softmax(x):
 	if x.ndim == 2:

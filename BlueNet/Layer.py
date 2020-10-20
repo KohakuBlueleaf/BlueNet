@@ -149,7 +149,7 @@ class Conv(Layer):
 		self.x = None														#colume of input
 	
 	def forward(self, x):
-		if self.params['W'].shape is None:
+		if self.params['W'] is None:
 			self.params['W'] = rn(self.f_num, x.shape[1], self.f_size, self.f_size)
 			self.params['W'] /= sqrt(self.params['W'].size)
 	
@@ -216,7 +216,7 @@ class DeConv(Layer):
 		self.col_W = None
 
 	def forward(self, x):
-		if self.params['W'].shape is None:
+		if self.params['W'] is None:
 			self.params['W'] = rn(x.shape[1],self.f_num,self.f_size,self.f_size)
 			self.params['W'] /= sqrt(self.params['W'].size)
 	
@@ -1267,14 +1267,17 @@ class SoftmaxWithLoss(Layer):
 		
 		return loss
 	
-	def backward(self, dout=1):
-		batch_size = self.t.shape[0]
-		if self.t.size == self.y.size:
-			dx = (self.y-self.t)/batch_size
+	def backward(self, dout=None):
+		if dout is None:
+			batch_size = self.t.shape[0]
+			if self.t.size == self.y.size:
+				dx = (self.y-self.t)/batch_size
+			else:
+				dx = self.y.copy()
+				dx[_np.arange(batch_size), self.t] -= 1
+				dx = dx/batch_size
 		else:
-			dx = self.y.copy()
-			dx[_np.arange(batch_size), self.t] -= 1
-			dx = dx/batch_size
+			return dout
 		
 		return dx
 		

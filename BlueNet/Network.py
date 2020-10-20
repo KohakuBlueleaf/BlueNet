@@ -4,11 +4,13 @@
 from BlueNet.Optimizer import *
 from BlueNet.Activation import *
 from BlueNet.Functions import *
+from BlueNet.Layer import Conv,DeConv
 from BlueNet.UsualModel import LeNet
 
 #native(or usual)
 from BlueNet.setting import _np
 from copy import copy,deepcopy
+from time import time
 import sys,os
 import numpy
 
@@ -16,6 +18,7 @@ rn = _np.random.randn
 D3 = {'Conv','DeConv','ResLayer','Flatten'}
 D2 = {'Dense'}
 PRE = {'Conv','DeConv','ResLayer','Softmax'}
+tp = type
 
 class Net:
 	
@@ -25,10 +28,12 @@ class Net:
 		self.net = []
 		for i in network:
 			self.net.append(i)
-		self.layers = len(network)																	#amount of layers
+		self.layers = len(network)								#amount of layers
+		self.optimizer = tp(optimizer())
+		self.learing_rate = rate
 		
 		#initial process
-		init = rn(data_shape[0],data_shape[1],data_shape[2])						 			#data for initial
+		init = rn(data_shape[0],data_shape[1],data_shape[2])	#data for initial
 		j = 0
 		for i in range(self.layers):
 			name = self.net[i].name
@@ -40,12 +45,12 @@ class Net:
 				elif name in D2:
 					init = init.reshape(1,init.size)
 			
-			self.net[i].shapeIn = init.shape[1:]												#save the input shape
+			self.net[i].shapeIn = init.shape[1:]				#save the input shape
 			
 			if init_mode == 'xaiver':
 				init_std = 1/(init.size**0.5)
 			
-			self.net[i].optimizer = optimizer(rate)												#set Optimizer
+			self.net[i].optimizer = optimizer(rate)				#set Optimizer
 			if not self.net[i].AF:
 				self.net[i].AF = AF()
 			self.net[i].type = type
@@ -57,19 +62,23 @@ class Net:
 
 				#Convolution
 				if name == 'Conv':
-					self.net[i].params['W'] = init_std * rn(FN, C, S, S)#weight's shape is (F_num,input_channel,F_size,F_Size)
-					out = self.net[i].forward(init)					#data to set next layer
-					N, out_C, out_H, out_W = out.shape
-					self.net[i].flops = ((C*S**2))*out_H*out_W*out_C	#caculate the FLOPs
-					self.net[i].size = FN*C*S*S + FN	#caculate the amount of parameters
-				#Transpose Convolution
-				else:
-					self.net[i].params['W'] = init_std * rn(C, FN, S, S)						#weight's shape is (Input_channel,F_Num,F_size,F_Size)
-					out = self.net[i].forward(init)												#data to set next layer
+					#weight's shape is (F_num, input_channel, F_size, F_Size)
+					self.net[i].params['W'] = init_std * rn(FN, C, S, S)
+					out = self.net[i].forward(init)						#data to set next layer
 					
 					N, out_C, out_H, out_W = out.shape
-					self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C							#caculate the FLOPs
-					self.net[i].size = self.net[i].params['W'].size								#caculate the amount of parameters
+					self.net[i].flops = ((C*S**2))*out_H*out_W*out_C	#caculate the FLOPs
+					self.net[i].size = FN*C*S*S + FN					#caculate the amount of parameters
+				
+				#Transpose Convolution
+				else:
+					#weight's shape is (Input_channel,F_Num,F_size,F_Size)
+					self.net[i].params['W'] = init_std * rn(C, FN, S, S)
+					out = self.net[i].forward(init)						#data to set next layer
+					
+					N, out_C, out_H, out_W = out.shape
+					self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C	#caculate the FLOPs
+					self.net[i].size = self.net[i].params['W'].size		#caculate the amount of parameters
 			
 				init = out
 					
@@ -194,12 +203,13 @@ class Net:
 				pass
 				
 		print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
-		print("│   Total   │{:^7.2f}│{:>10}│              │	            │".format(total_f/1000000000,total))
+		print("│   Total   │{:^7.2f}│{:>10}│              │             │".format(total_f/1000000000,total))
 		print("└───────────┴───────┴──────────┴──────────────┴─────────────┘")	
 
 	#forward process. DropOut is set OFF. SoftmaxWithLoss return the answer
 	def process(self,input):
 		input = _np.asarray(input)
+		
 		for i in range(self.layers):
 			if self.net[i].name == 'DropOut':continue
 			
@@ -207,25 +217,18 @@ class Net:
 				input = self.net[i].forward(input,0,False)
 			else:
 				input = self.net[i].forward(input)
+		
 		return input
 		
 	#forward process. DropOut is set ON. SoftmaxWithLoss return the loss
-	def forward(self,input,t=None,loss_function=None):
-		input = _np.asarray(input)
-		if t is not None:
-			t = _np.asarray(t)
-		
-		for i in range(self.layers):
-			if self.net[i].name != 'Softmax':
-				input = self.net[i].forward(input)
-			else:
-				input = self.net[i].forward(input,t)
-				return input
+	def forward(self, input, t=None, loss_function=None):
+		output = self.process(_np.asarray(input))
 				
 		if loss_function is not None and t is not None:
+			t = _np.asarray(t)
 			return input,loss_function(input,t)
 		
-		return input
+		return output
 	
 	#Backpropagation (will save the gradients)
 	def backward(self,error):
@@ -250,20 +253,88 @@ class Net:
 		return error
 	
 	#Train consist of forward, backtrain, call the optimizer
-	def train(self,input,t,loss_function=cross_entropy_error):
-		output = self.forward(input, t)					#forward(get the loss)
-		if self.net[-1].name!='Softmax':
-			loss = loss_function(output,t)
-			
-			error = (output-t)/t.size
-			self.back_train(deepcopy(error))
-			
-			return loss
-		else:
-			self.back_train(deepcopy(output))
-			return output
-			
+	def train(self, input, t, loss_function=cross_entropy_error):
+		output = self.forward(input, t)			#forward
+		t = _np.asarray(t)
 		
+		try:
+			loss = loss_function(output,t)
+		except:
+			print(type(t), type(output))
+		
+		error = (output-t)/t.shape[0]
+		self.back_train(error)
+		
+		return loss
+	
+	def pre_train_for_conv(self, all_data, batch_size=100):
+		all_data = numpy.asarray(all_data[:10000])
+		
+		train_size = all_data.shape[0]
+		iter_num = max(1, train_size//batch_size)
+		if iter_num==1:
+			batch_size = train_size
+		
+		layer_num=1
+		print('\n┌────────────────────────────┐  ')
+		print('│ Pre training start	     │  ')
+		for i in range(len(self.net)):
+			layer = self.net[i]
+			layer.optimizer = self.optimizer()
+			start = time()
+			
+			if layer.name=='Conv':
+				print("│ ===========================│  ")
+				
+				other_layers = self.net[:i]
+				init = _np.asarray(all_data[:1])
+				for other_layer in other_layers:
+					init = other_layer.forward(init)
+				
+				if layer.f_size == 2*layer.pad+1:
+					pre_train_layer = Conv({'f_num':init.shape[1], 'f_size':layer.f_size, 'stride':layer.stride, 'pad':layer.pad})
+				else:
+					size = layer.f_size-2*layer.pad
+					pre_train_layer = DeConv({'f_num':init.shape[1], 'f_size':size, 'stride':layer.stride})
+				
+				pre_train_layer.AF = type(layer.AF)()
+				pre_train_layer.optimizer = type(layer.optimizer)()
+				
+				for _ in range(iter_num):
+					data_mask = numpy.random.choice(train_size, batch_size)
+					data = _np.asarray(all_data[data_mask])
+					
+					for other_layer in other_layers:
+						data = other_layer.forward(data)
+						
+					#forward and backward
+					forward = pre_train_layer.forward(layer.forward(data))
+					error = (forward-data)/batch_size
+					layer.backward(pre_train_layer.backward(error))
+					
+					#train
+					layer.train()
+					pre_train_layer.train()
+					
+					loss = RMS(data,forward)
+					print('│ Layer {:<4}  Loss     :{:<5}│  '.format(i+1,str(loss)[:5]), end='\r')
+				
+				if i==0 or i==1:
+					layer.optimizer = self.optimizer(0)
+				else:
+					layer.optimizer = self.optimizer(self.learing_rate)
+			else:
+				layer_num += 1
+				continue
+			
+			end = time()
+			cost = end-start
+			
+			print("│ Layer {:<4}       Loss:{:<5}│  ".format(i+1,str(loss)[:5]))
+			print("│             Cost Time:{:<5}│  ".format(str(cost)[:5]))
+		
+		print('└────────────────────────────┘  ')
+
 	def reset(self):
 		for i in range(self.layers):
 			if self.net[i].name == 'TimeLSTM':

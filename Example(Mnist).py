@@ -8,35 +8,47 @@ from numpy.random import choice as rc
 import BlueNet.Dataset.Mnist as mnist
 from BlueNet.Network import Net
 from BlueNet.Layer import *
-from BlueNet.Activation import GELU
+from BlueNet.Activation import *
 from BlueNet.Optimizer import Adam
-from BlueNet.UsualModel import LeNet
-from BlueNet.Functions import cross_entropy_error
+
+
+## LeNet
+model = [
+		Conv({'f_num':6, 'f_size':5, 'pad':2, 'stride':1}),
+		Pool(2,2,2),
+		Conv({'f_num':16, 'f_size':5, 'pad':0, 'stride':1}),
+		Pool(2,2,2),
+		Conv({'f_num':120, 'f_size':5, 'pad':0, 'stride':1}),
+		Flatten(),
+		Dense(output_size=84),
+		Dense(output_size=10),
+			
+		SoftmaxWithLoss()
+		]
 
 ## load train set and test set                    Normalize Flat One-hot Smooth type
 (x_train,t_train),(x_test,t_test) = mnist.load_mnist(True, False, True, False, np.float32)
 
-
 ##Initialize the neural network(Use LeNet)     
-net = Net(LeNet, (1,28,28), GELU, Adam, 0.001, 0, 'xaiver', np.float32)
-net.update('./')
-
+net = Net(model, (1,28,28), GELU, Adam, 0.001, 0.01, 'xaiver', np.float32)
+net.update('./Mnist_sample_weight/')
 
 ##Print the structure of the network
 net.print_size()
 
+##Pre learn
+mask = rc(x_train.shape[0],10000)
+net.pre_train_for_conv(x_train[mask], 50)
 
 ##Set some parameters for training 
-batch_size = 300
+batch_size = 50
 train_size = x_train.shape[0]
 iter_per_epoch = max((train_size//batch_size), 1)
 max_acc = net.accuracy(x_test, t_test, batch_size)
 print('Test Acc:{:5.5}'.format(str(max_acc*100)))
 
-
 ##Input how many epoch You wnat
 Epoch = int(input('Epoch:'))
-
 
 ##Start Training
 print('\n┌────────────────────────────┐  ')
@@ -52,7 +64,7 @@ for j in range(Epoch):
         t_batch = t_train[batch_mask]
         
         loss = net.train(x_batch, t_batch)					    #Train&Caculate the loss of the net
-        #print('│ Epoch {:<4}  Loss     :{}│  '.format(j+1,str(loss)[:5]), end='\r', flush=True)
+        print('│ Epoch {:<4}  Loss     :{}│  '.format(j+1,str(loss)[:5]), end='\r', flush=True)
     
     cost = time.time()-start
     test_acc = net.accuracy(x_test, t_test, batch_size)
@@ -60,7 +72,7 @@ for j in range(Epoch):
     
     if test_acc>max_acc:
         max_acc = test_acc 
-        net.save()                                                 #Save the parameters
+        net.save('./Mnist_sample_weight/')                        #Save the parameters
     
     print("│ Epoch {:<4}  Test Acc :{:<5}│  ".format(j+1,str(test_acc*100)[:5]))
     print("│             Train Acc:{:<5}│  ".format(str(train_acc*100)[:5]))
@@ -68,5 +80,5 @@ for j in range(Epoch):
     
 print('└────────────────────────────┘  ')
 
-net.update('./')
+net.update('./Mnist_sample_weight/')
 print("Final Accuracy: %2f%%"%(100*net.accuracy(x_test, t_test)))
