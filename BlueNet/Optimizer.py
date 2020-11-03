@@ -1,19 +1,6 @@
 # coding: utf-8
 import sys
-from BlueNet.setting import _np
-
-def L1_Norm(weight,grad,decay_rate=0.00001):
-	decay = _np.sum(_np.abs(weight))
-	grad += decay*decay_rate
-	
-	return grad
-
-
-def L2_Norm(weight,grad,decay_rate=0.00001):
-	decay = _np.sum(weight**2)**0.5
-	grad -= decay*decay_rate
-	
-	return grad
+from bluenet.setting import _np
 
 
 class SGD:

@@ -1,16 +1,16 @@
 # coding: utf-8
 
 #Original module
-from BlueNet.Functions import *				#im2col and col2im function(written by 斎藤康毅)
-from BlueNet.Optimizer import *				#SGD/Adam/optimizer/Momentum/RMSprop
-from BlueNet.Activation import *			#ReLU/Elu/GELU/ISRL/ISRLU/Sigmoid/Softplus/Softsign/Tanh/Arctan		
+from bluenet.activation import *
+from bluenet.optimizer import *
+from bluenet.functions import *	
 
 #Native Module
 import sys,os
 import pickle
 from copy import copy,deepcopy
-from BlueNet.setting import _np
-from BlueNet.setting import _exp
+from bluenet.setting import _np
+from bluenet.setting import _exp
 
 try:
 	import cupy as cp
@@ -21,63 +21,61 @@ rn = _np.random.randn
 sqrt = lambda x: x**0.5
 
 class Layer:
-	def __init__(self, AF=None, rate=0.001, optimizer=Adam, type=None):
-		self.shapeIn = None													#shape of data(IN)
-		self.shapeOut = None												#shape of data(OUT)
+	def __init__(self, af=None, rate=0.001, optimizer=Adam, dtype=None):
+		self.shape_in = None													#shape of data(IN)
+		self.shape_out = None												#shape of data(OUT)
 		
-		if AF:
-			self.AF = AF()													#activation function
+		if af:
+			self.af = af()													#activation function
 		else:
-			self.AF = None
+			self.af = None
 		self.optimizer = optimizer(lr=rate)									#Optimizer
 		self.size = 0														#amount of params(Weight+bias)
 		self.flops = 0
 		
 		self.params = {}
 		self.grad = {}
-		self.type = type
+		self.dtype = dtype
 	
 	def __copy__(self):
-		new = type(self)(self.output_size)
-		new.shapeIn = self.shapeIn 									#shape of data(IN)
-		new.shapeOut = self.shapeOut								#shape of data(OUT)
+		new = dtype(self)(self.output_size)
+		new.shape_in = self.shape_in 									#shape of data(IN)
+		new.shape_out = self.shape_out								#shape of data(OUT)
 		
-		new.AF = type(self.AF)()									#activation function
-		new.optimizer = type(self.optimizer)(self.optimizer.lr)		#Optimizer
+		new.af = dtype(self.af)()											#activation function
+		new.optimizer = dtype(self.optimizer)(self.optimizer.lr)		#Optimizer
 		new.size = self.size										#amount of params(Weight+bias)
 		new.flops = self.flops
 		
 		new.params = deepcopy(self.params)
 		new.grad = {}
-		new.type = self.type
+		new.dtype = self.dtype
 	
 	def train(self):
 		self.optimizer.update(self.params,self.grad)
 	
-	def save(self, name="", path="./"):										#Save the parameters
+	def save(self, name="", path="./"):								#Save the parameters
+		if path[-1]!='/':
+			path += '/'
 		params = {}
 		for key, val in self.params.items():
 			params[key] = val
 		
-		with open('{}weight/{}_W_{}'.format(path,self.name,name), 'wb') as f:
+		with open('{}{}_W_{}'.format(path,self.name,name), 'wb') as f:
 			pickle.dump(params, f)
 	
 	def load(self, name="", path="./"):
-		with open('{}weight/{}_W_{}'.format(path,self.name,name), 'rb') as f:
+		if path[-1]!='/':
+			path += '/'
+		with open('{}{}_W_{}'.format(path,self.name,name), 'rb') as f:
 			params = pickle.load(f)
 		
 		for key, val in params.items():
-			if key=='W1':
-				key = 'W'
-			
-			if key=='b1':
-				key = 'b'
-
 			if val.shape == self.params[key].shape: 
 				try:
-					self.params[key] = _np.asarray(val).astype(self.type)
+					self.params[key] = _np.asarray(val).astype(self.dtype)
 				except:
-					self.params[key] = cp.asnumpy(val).astype(self.type)
+					self.params[key] = cp.asnumpy(val).astype(self.dtype)
 			else:
 				print('weight shape error')
 	
@@ -88,8 +86,8 @@ class Dense(Layer):
 	Full Conected Layer
 	'''
 	
-	def __init__(self, output_size, AF=None):
-		super(Dense, self).__init__(AF=AF)
+	def __init__(self, output_size, af=None):
+		super(Dense, self).__init__(af=af)
 		self.name = 'Dense'
 		
 		#initialize
@@ -107,14 +105,14 @@ class Dense(Layer):
 			self.params['W'] = rn(x.shape[1], self.output_size)/x.shape[1]**0.5
 		
 		out = _np.dot(x, self.params['W'])+self.params['b']
-		out = self.AF.forward(out)
+		out = self.af.forward(out)
 		
 		self.x = x
 		
 		return out
 	
 	def backward(self,error):
-		dout = self.AF.backward(error)	
+		dout = self.af.backward(error)	
 		dx = _np.dot(dout, self.params['W'].T)						#BP for input
 		
 		self.grad['b'] = _np.sum(dout, axis=0)						#BP for bias
@@ -130,8 +128,8 @@ class Conv(Layer):
 	Convolution Layer
 	'''
 	
-	def __init__(self, conv_param, AF=None):
-		super(Conv, self).__init__(AF=AF)
+	def __init__(self, conv_param, batchnorm=False, af=None):
+		super(Conv, self).__init__(af=af)
 		self.name = 'Conv'
 		
 		#Initialize
@@ -147,7 +145,11 @@ class Conv(Layer):
 		#data for backpropagation
 		self.x_shape = None   												#shape of input
 		self.x = None														#colume of input
-	
+		
+		self.BatchNorm = None
+		if batchnorm:
+			self.BatchNorm = BatchNorm()
+
 	def forward(self, x):
 		if self.params['W'] is None:
 			self.params['W'] = rn(self.f_num, x.shape[1], self.f_size, self.f_size)
@@ -159,11 +161,13 @@ class Conv(Layer):
 		out_h = 1+int((H+2*self.pad-FH)/self.stride)
 		out_w = 1+int((W+2*self.pad-FW)/self.stride)
 		
-		col = im2col(x, FH, FW, self.stride, self.pad, self.type)			#Change the image to colume
+		col = im2col(x, FH, FW, self.stride, self.pad, self.dtype)			#Change the image to colume
 		col_W = self.params['W'].reshape(FN, -1).T							#Change the filters to colume
 		
 		out = _np.dot(col, col_W)+self.params['b']
-		out = self.AF.forward(out)
+		if self.BatchNorm:
+			out = self.BatchNorm.forward(out)
+		out = self.af.forward(out)
 		out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)		#change colume to image
 
 		self.x_shape = x.shape
@@ -175,9 +179,11 @@ class Conv(Layer):
 		FN, C, FH, FW = self.params['W'].shape
 		
 		dout = dout.transpose(0, 2, 3, 1).reshape(-1, FN)					#change gradient to colume
-		dout = self.AF.backward(dout)
+		dout = self.af.backward(dout)
+		if self.BatchNorm:
+			dout = self.BatchNorm.backward(dout)
 		
-		col = im2col(self.x, FH, FW, self.stride, self.pad, self.type)
+		col = im2col(self.x, FH, FW, self.stride, self.pad, self.dtype)
 		self.grad['b'] = _np.sum(dout, axis=0)
 		self.grad['W'] = _np.dot(col.T, dout).transpose(1, 0).reshape(FN, C, FH, FW)
 		
@@ -185,11 +191,197 @@ class Conv(Layer):
 		self.x = None
 		
 		dcol = _np.dot(dout, self.params['W'].reshape(FN, -1))
-		dx = col2im(dcol, self.x_shape, FH, FW, self.stride, self.pad, self.type)
+		dx = col2im(dcol, self.x_shape, FH, FW, self.stride, self.pad, self.dtype)
 
 		return dx
 
 
+class DepthwiseConv(Layer):
+	def __init__(self, conv_param, batchnorm=False, af=None):
+		super(DepthwiseConv, self).__init__(af=af)
+		self.name = 'DepthConv'
+		
+		#Initialize
+		self.f_size = conv_param['f_size']									#Size of filters
+		self.pad = conv_param['pad']										#Padding size
+		self.stride = conv_param['stride']									#Step of filters
+		
+		#params
+		self.params['W'] = None												#Set by intial process(see Network.py)
+		
+		#data for backpropagation
+		self.x_shape = None   												#shape of input
+		self.x = None														#colume of input
+		
+		self.BatchNorm = None
+		if batchnorm:
+			self.BatchNorm = BatchNorm()
+	
+	def forward(self, x):
+		if self.params['W'] is None:
+			self.params['W'] = rn(x.shape[1], self.f_size, self.f_size)
+			self.params['W'] /= sqrt(self.params['W'].size)
+		
+		weight = self.params['W']
+		FN, FH, FW = weight.shape
+		N, C, H, W = x.shape
+		x = x.transpose(1,0,2,3)
+		
+		out_h = 1+int((H+2*self.pad-FH)/self.stride)
+		out_w = 1+int((W+2*self.pad-FW)/self.stride)
+		
+		out = _np.zeros((C, N, out_h, out_w), dtype=self.dtype)
+		for img,kernel,i in zip(x, weight, range(C)):
+			col = im2col_2d(img, FH, FW, self.stride, self.pad, self.dtype)		#Change the image to colume
+			col_W = kernel.reshape(1, -1).T																		#Change the filters to colume
+			out[i] = _np.dot(col, col_W).reshape(N,out_h,out_w)
+		
+		if self.BatchNorm:
+			out = self.BatchNorm.forward(out)
+		
+		out = self.af.forward(out)
+		out = out.transpose(1,0,2,3)
+		
+		self.x_shape = x.shape
+		self.x = x
+
+		return out
+	
+	def conv_grad(self, dout, img, kernel, FH, FW, N):
+		col = im2col(img, FH, FW, self.stride, self.pad, self.dtype)
+		d_w = _np.dot(col.T, dout).transpose(1,0).reshape(1, FH, FW)
+		d_x = _np.dot(dout, kernel)
+		
+		return d_w,d_x
+		
+	def backward(self, dout):
+		weight = self.params['W']
+		FN, FH, FW = weight.shape
+		FN, N, iH, iW = self.x_shape
+		
+		dout = dout.transpose(1,0,2,3)
+		dout = self.af.backward(dout)
+		if self.BatchNorm:
+			dout = self.BatchNorm.backward(dout)
+		
+		dw = []
+		dx = []
+		shape = (N,1,iH,iW)
+		for i in range(FN):
+			d = dout[i].reshape(-1,1)
+			
+			img = self.x[i:i+1].transpose(1,0,2,3)
+			kernel = weight[i].reshape(1,-1)
+			
+			d_w, d_x = self.conv_grad(d,img,kernel,FH,FW,N)
+			d_x_img = col2im(d_x, shape, FH, FW, self.stride, self.pad, self.dtype)
+			
+			dw.append(d_w)
+			dx.append(d_x_img.reshape(N,iH,iW))
+		
+		dw = _np.asarray(dw).reshape(FN,FH,FW)
+		dx = _np.asarray(dx).transpose(1,0,2,3)
+		
+		self.grad['W'] = dw
+		self.x = None
+
+		return dx
+
+class PointwiseConv(Conv):
+	def __init__(self, f_num, batchnorm, af=None):
+		conv_param = {'f_num':f_num, 'f_size':1, 'pad':0, 'stride':1}
+		super(PointwiseConv, self).__init__(conv_param, batchnorm, af)
+		self.name = 'PointConv'
+
+class MobileConv:
+	def __init__(self, conv_param, af=None):
+		self.name = 'Mobile'
+		
+		#Initialize
+		self.f_num = conv_param['f_num']						#amount of filters
+		self.f_size = conv_param['f_size']						#Size of filters
+		self.pad = conv_param['pad']							#Padding size
+		self.stride = conv_param['stride']						#Step of filters
+		self.af = af
+		
+		self.DepthConv = DepthwiseConv(conv_param, batchnorm=False, af=af)
+		self.PointConv = PointwiseConv(f_num=self.f_num, batchnorm=False, af=af)
+		
+		self.size = 0											#amount of params
+		self.flops = 0
+	
+	def initial(self, data, init_std=0.001, init_mode='normal', af=Elu, optimizer=Adam, rate=0.001, typ=_np.float32):
+		init = data
+		if init_mode == 'xaiver':
+			init_std = 1/(init.size**0.5)
+		
+		##Initial for depthwise convolution layer
+		N, C, H, W = init.shape
+		S = self.f_size
+		
+		self.DepthConv.af = dtype(self.af)()
+		self.DepthConv.optimizer = optimizer(rate)
+		self.DepthConv.params['W'] = init_std*rn(C,S,S).astype(typ)
+		
+		init = self.DepthConv.forward(init)
+		
+		#Caculate the FLOPs & Amount of params
+		N, out_C, out_H, out_W = init.shape
+		self.DepthConv.flops = (C*S**2)*H*W
+		self.DepthConv.size = C*S**2
+		self.flops += self.DepthConv.flops
+		self.size += self.DepthConv.size
+		
+		##Initial for pointwise convolution layer
+		N, C, H, W = init.shape
+		FN = self.f_num
+		
+		self.PointConv.af = dtype(self.af)()
+		self.PointConv.optimizer = optimizer(rate)
+		self.PointConv.params['W'] = init_std*rn(FN,C,1,1).astype(typ)
+		self.PointConv.params['b'] *= init_std
+		
+		out = self.PointConv.forward(init)
+		
+		#Caculate the FLOPs & Amount of params
+		N, out_C, out_H, out_W = out.shape
+		self.PointConv.flops = C*H*W*FN
+		self.PointConv.size = FN*C+FN
+		self.flops += self.PointConv.flops
+		self.size += self.PointConv.size
+		
+		return out
+		
+	def forward(self, x):
+		depth = self.DepthConv.forward(x)
+		point = self.PointConv.forward(depth)
+		return point
+	
+	def backward(self, dout):
+		dpoint = self.PointConv.backward(dout)
+		ddepth = self.DepthConv.backward(dpoint)
+		return ddepth
+	
+	def train(self):
+		self.DepthConv.train()
+		self.PointConv.train()
+	
+	def save(self, name="", path='./'):
+		if path[-1]!='/': path += '/'
+		path = f'{path}Res_'+name+'/'
+		if not os.path.isdir(path):
+			os.mkdir(path)
+		
+		self.DepthConv.save('1',path)
+		self.PointConv.save('2',path)
+		
+	def load(self, name='', path='./'):
+		if path[-1]!='/': path += '/'
+		path = f'{path}Res_'+name+'/'
+		
+		self.DepthConv.load('1',path)
+		self.PointConv.load('2',path)
+		
 class DeConv(Layer):
 
 	'''
@@ -197,8 +389,8 @@ class DeConv(Layer):
 	The forward of DeConv is the same as Convolution's backward and backward is the same as conv's forward too.
 	'''
 	
-	def __init__(self, conv_param, AF=None):
-		super(DeConv, self).__init__(AF=AF)
+	def __init__(self, conv_param, af=None):
+		super(DeConv, self).__init__(af=af)
 		self.name = 'DeConv'
 		
 		#Initialize
@@ -217,9 +409,8 @@ class DeConv(Layer):
 
 	def forward(self, x):
 		if self.params['W'] is None:
-			self.params['W'] = rn(x.shape[1],self.f_num,self.f_size,self.f_size)
+			self.params['W'] = rn(x.shape[1], self.f_num, self.f_size, self.f_size)
 			self.params['W'] /= sqrt(self.params['W'].size)
-	
 		FN, C, FH, FW = self.params['W'].shape
 		N, B, H, W = x.shape
 		
@@ -229,8 +420,8 @@ class DeConv(Layer):
 		col = x.transpose(0, 2, 3, 1).reshape(-1,FN)
 		col_W = self.params['W'].reshape(FN, -1)
 		out = _np.dot(col, col_W)
-		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0, self.type)
-		out = self.AF.forward(out)
+		out = col2im(out, (N, C , out_h, out_w), FH, FW, self.stride, 0, self.dtype)
+		out = self.af.forward(out)
 		
 		self.x_shape = x.shape
 		self.col = col
@@ -240,8 +431,8 @@ class DeConv(Layer):
 	def backward(self, dout):
 		FN, C, FH, FW = self.params['W'].shape
 		
-		dout = self.AF.backward(dout)
-		dout = im2col(dout, FH, FW, self.stride, 0, self.type)
+		dout = self.af.backward(dout)
+		dout = im2col(dout, FH, FW, self.stride, 0, self.dtype)
 		
 		self.grad['W'] = _np.dot(self.col.T, dout)
 		self.grad['W'] = self.grad['W'].transpose(1, 0).reshape(FN, C, FH, FW)
@@ -367,11 +558,9 @@ class Flatten(Layer):
 		
 	def forward(self, x):
 		self.in_shape = x.shape
-		
 		return x.reshape((x.shape[0],-1))
 	
 	def backward(self, dout):
-		
 		return dout.reshape(self.in_shape)
 		
 		
@@ -396,7 +585,6 @@ class BFlatten(Layer):
 		return x.reshape((x.shape[0], C, W, H))
 	
 	def backward(self, dout):
-		
 		return dout.reshape(self.in_shape)
 
 
@@ -461,8 +649,6 @@ class BatchNorm(Layer):
 	def __backward(self, dout):
 		gamma = self.gamma
 		
-		dbeta = dout.sum(axis=0)
-		dgamma = self.xn*dbeta
 		dxn = gamma*dout
 		dxc = dxn/self.std
 		dstd = -_np.sum((dxn*self.xc)/(self.std*self.std), axis=0)
@@ -483,23 +669,17 @@ class Dropout(Layer):
 		self.dropout_ratio = dropout_ratio
 		self.mask = None
 	
-	def forward(self, x, require_grad=True):
-		if require_grad:
-			self.mask = _np.random.rand(*x.shape) > self.dropout_ratio
-			
-			return x*self.mask
-		else:
-			
-			return x*(1.0-self.dropout_ratio)
+	def forward(self, x):
+		self.mask = _np.random.rand(*x.shape) > self.dropout_ratio
+		return x*self.mask
 
 	def backward(self, dout):
-		
 		return dout*self.mask
 
 
 class ResBlock:
 	def __init__(self):
-		self.AF = None
+		self.af = None
 		self.layers = []
 		
 		#additional layer to fit the shape
@@ -511,24 +691,29 @@ class ResBlock:
 		#other
 		self.size = 0
 		self.flops = 0
-		self.shapeOut = None
-		self.shapeIn = None
+		self.shape_out = None
+		self.shape_in = None
 	
-	def layer_init(self, data, init_std=0.001, init_mode='normal', AF=Elu, optimizer=Adam, rate=0.001, type = _np.float32):
+	def layer_init(self, data, init_std=0.001, init_mode='normal', af=GELU, optimizer=Adam, rate=0.001, dtype = _np.float32):
 		init = data
 		
+		if init_mode!='normal':
+			init_std_b=0
 		for i in range(len(self.layer)):
-			self.layer[i].AF = ID()
-			if init_mode == 'xaiver':
-				init_std = 1/(init.size**0.5)
+			self.layer[i].af = ID()
+			
+			if len(init.shape)==2:
+				init_w = get_initializer(init, init_std, init_mode, dtype)
+			elif len(init.shape)==4:
+				init_w = get_conv_initializer(init, init_std, init_mode, dtype)
 			
 			if self.layer[i].name == 'Conv':
 				FN, C, S = self.layer[i].f_num, init.shape[1], self.layer[i].f_size
-				self.layer[i].type = type
+				self.layer[i].dtype = dtype
 				
 				#set the params
-				self.layer[i].params['W'] = init_std*rn(FN, C, S, S).astype(type)
-				self.layer[i].params['b'] = self.layer[i].params['b'].astype(type)*init_std
+				self.layer[i].params['W'] = init_w(FN, C, S, S)
+				self.layer[i].params['b'] = self.layer[i].params['b'].astype(dtype)*init_std_b
 				out = self.layer[i].forward(init)
 				
 				#Caculate the FLOPs & Amount of params
@@ -546,8 +731,8 @@ class ResBlock:
 				
 				#set the params
 				out_size =  self.layer[i].output_size
-				self.layer[i].params['W'] = init_std*rn(init.size, out_size).astype(type)
-				self.layer[i].params['b'] = self.layer[i].params['b'].astype(type)*init_std
+				self.layer[i].params['W'] = init_w(init.shape[1],out_size)
+				self.layer[i].params['b'] = self.layer[i].params['b'].astype(dtype)*init_std_b
 				
 				#Caculate the FLOPs & Amount of params
 				self.layer[i].size = init.size*out_size+out_size
@@ -564,17 +749,17 @@ class ResBlock:
 				
 				#set the params
 				self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':1})
-				self.Conv.type = type
-				self.Conv.params['W'] = init_std*rn(FN,C,1,1).astype(type)
-				self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
+				self.Conv.dtype = dtype
+				self.Conv.params['W'] = init_w(FN,C,1,1)
+				self.Conv.params['b'] = self.Conv.params['b'].astype(dtype)*init_std_b
 				
 				#set Activation Functions & optimizer
-				self.Conv.AF = ID()
+				self.Conv.af = ID()
 				self.Conv.optimizer = optimizer(rate)
 				
 				#Caculate the FLOPs & Amount of params
 				self.Conv.size = FN*C+FN
-				self.Conv.flops = (C *S**2)*out_H*out_W*out_C
+				self.Conv.flops = (C*S**2)*out_H*out_W*out_C
 				self.size += self.Conv.size
 				self.flops += self.Conv.flops
 				
@@ -586,9 +771,9 @@ class ResBlock:
 					out_C, out_H, out_W = init.shape[1],data.shape[2],data.shape[3]
 					
 					self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':0,'stride':2})
-					self.Conv.type = type
-					self.Conv.params['W'] = init_std*rn(FN,C,1,1).astype(type)
-					self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
+					self.Conv.dtype = dtype
+					self.Conv.params['W'] = init_w(FN,C,1,1)
+					self.Conv.params['b'] = self.Conv.params['b'].astype(dtype)*init_std_b
 					
 					#set optimizer
 					self.Conv.optimizer = optimizer(rate)
@@ -606,9 +791,9 @@ class ResBlock:
 					out_C, out_H, out_W = init.shape[1],data.shape[2],data.shape[3]
 					
 					self.Conv = Conv({'f_num':init.shape[1],'f_size':1,'pad':1,'stride':2})
-					self.Conv.type = type
-					self.Conv.params['W'] = init_std*rn(FN,C,1,1).astype(type)
-					self.Conv.params['b'] = self.Conv.params['b'].astype(type)*init_std
+					self.Conv.dtype = dtype
+					self.Conv.params['W'] = init_w(FN,C,1,1)
+					self.Conv.params['b'] = self.Conv.params['b'].astype(dtype)*init_std_b
 					
 					#set optimizer
 					self.Conv.optimizer = optimizer(rate)
@@ -637,18 +822,20 @@ class ResBlock:
 		if self.use_conv:
 			self.Conv.optimizer.update(self.Conv.params,self.Conv.grad)
 	
-	def save(self, name):
+	def save(self, name='', path='./'):
+		if path[-1]!='/':
+			path += '/'
 		j = 1
-		path = './weight/new/Res_'+name+'/'
+		path = f'{path}Res_'+name+'/'
 		if not os.path.isdir(path):
 			os.mkdir(path)
 		
-		path = '/Res_'+name
+		#path = '/Res_'+name
 		
 		for i in self.layers:
 			try:
 				i.save(str(j),path)
-			except AttributeError: 	#AF
+			except AttributeError: 	#af
 				pass
 			
 			j+=1
@@ -656,18 +843,17 @@ class ResBlock:
 		if self.use_conv:
 			self.Conv.save(str(j+1),path)
 		
-	def load(self, name):
+	def load(self, name='', path='./'):
+		if path[-1]!='/':
+			path += '/'
 		j = 1
-		path = './weight/new/Res_'+name+'/'
-		if not os.path.isdir(path):
-			os.mkdir(path)
-		
-		path = '/Res_'+name
+		path = f'{path}Res_'+name+'/'
+		#path = '/Res_'+name
 		
 		for i in self.layers:
 			try:
 				i.load(str(j),path)
-			except AttributeError:		#AF
+			except AttributeError:		#af
 				pass
 			except FileNotFoundError:	#file not found(Conv,Deconv,BN,Dense)
 				pass
@@ -675,7 +861,7 @@ class ResBlock:
 			j+=1
 		
 		if self.use_conv:
-			self.Conv.load(str(j+1))
+			self.Conv.load(str(j+1),path)
 
 
 class ResV1(ResBlock):
@@ -686,15 +872,17 @@ class ResV1(ResBlock):
 		#Initialize
 		self.layer = layer
 		
-	def initial(self, data, init_std=0.001, init_mode='normal', AF=Elu, optimizer=Adam, rate=0.001, type=_np.float32):
-		init = self.layer_init(data, init_std, init_mode, AF, optimizer, rate, type)
+	def initial(self, data, init_std=0.001, init_mode='normal', af=Elu, optimizer=Adam, rate=0.001, dtype=_np.float32):
+		init = self.layer_init(data, init_std, init_mode, af, optimizer, rate, dtype)
 		
 		for i in self.layer:
-			i.AF = ID()
+			i.af = ID()
 			i.optimizer = optimizer(rate)
 			self.layers.append(i)
 			self.layers.append(BatchNorm())
-			self.layers.append(AF())
+			self.layers.append(af())
+		if self.use_conv:
+			self.Conv.af = ID()
 		
 		return init
 	
@@ -735,15 +923,17 @@ class ResV2(ResBlock):
 		#initialize
 		self.layer = layer
 		
-	def initial(self, data, init_std=0.001, init_mode='normal', AF=Elu, optimizer=Adam, rate=0.001, type=_np.float32):
-		init = self.layer_init(data, init_std, init_mode, AF, optimizer, rate, type)
+	def initial(self, data, init_std=0.001, init_mode='normal', af=Elu, optimizer=Adam, rate=0.001, dtype=_np.float32):
+		init = self.layer_init(data, init_std, init_mode, af, optimizer, rate, dtype)
 		
 		for i in self.layer:
-			i.AF = ID()
+			i.af = ID()
 			i.optimizer = optimizer(rate)
-			self.layers.append(BatchNorm(optimizer=optimizer, rate=rate))
-			self.layers.append(AF())
+			self.layers.append(BatchNorm())
+			self.layers.append(af())
 			self.layers.append(i)	
+		if self.use_conv:
+			self.Conv.af = ID()
 
 		return init
 	
@@ -857,8 +1047,8 @@ class TimeEmbedding(Layer):
 
 class TimeDense(Layer):
 	
-	def __init__(self, output, AF=Elu, optimizer=Adam, rate=0.001):
-		super(TimeDense,self).__init__(AF, rate, optimizer)
+	def __init__(self, output, af=Elu, optimizer=Adam, rate=0.001):
+		super(TimeDense,self).__init__(af, rate, optimizer)
 		self.name = 'TimeDense'
 		
 		#initialize
@@ -994,8 +1184,8 @@ class LSTM:
 
 class TimeLSTM(Layer):
 	
-	def __init__(self, node, stateful=False, optimizer=Adam, rate=0.001, type=_np.float32):
-		super(TimeLSTM, self).__init__(GELU, rate, optimizer, type)
+	def __init__(self, node, stateful=False, optimizer=Adam, rate=0.001, dtype=_np.float32):
+		super(TimeLSTM, self).__init__(GELU, rate, optimizer, dtype)
 		self.name = 'TimeLSTM'
 		
 		#initialize
@@ -1155,7 +1345,7 @@ class GRU:
 class TimeGRU(Layer):
 	
 	def __init__(self,node,stateful=False,optimizer=Adam,rate=0.001,Train_flag = True):
-		super(TimeGRU,self).__init__(AF = GELU, rate=rate, optimizer=optimizer)
+		super(TimeGRU,self).__init__(af = GELU, rate=rate, optimizer=optimizer)
 		self.name = 'TimeGRU'
 		
 		#initialize

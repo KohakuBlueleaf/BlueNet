@@ -5,7 +5,7 @@ import pickle
 import gzip
 import numpy as np
 from PIL import Image  
-from BlueNet.Functions import _change_one_hot_label, label_smoothing
+from bluenet.functions import _change_one_hot_label,label_smoothing
 
 
 img_size = 784
@@ -40,9 +40,10 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 
 	dataset['data'] = dataset['data'].astype(type)
 	testset['data'] = testset['data'].astype(type)
+
 	if normalize:
-		dataset['data'] /= 255.0
-		testset['data'] /= 255.0
+		dataset['data'] /= 255
+		testset['data'] /= 255
 
 	if one_hot_label:
 		dataset['labels'] = _change_one_hot_label(dataset['labels']-1,26)
@@ -51,6 +52,10 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 	if not flatten:
 		dataset['data'] = dataset['data'].reshape(-1, 1, 28, 28).transpose(0,1,3,2)
 		testset['data'] = testset['data'].reshape(-1, 1, 28, 28).transpose(0,1,3,2)
+	
+	if smooth:
+		dataset['labels'] = label_smoothing(dataset['labels'],0.1)
+		testset['labels'] = label_smoothing(testset['labels'],0.1)
 	
 	if choose == 0:
 		data_choose = np.arange(0,len(dataset['data']))
@@ -71,9 +76,6 @@ def load_emnist(normalize=True, flatten=True, one_hot_label=True, smooth=False, 
 		data_choose = np.arange(2,len(dataset['data'])+2,3)
 		test_choose = np.arange(2,len(testset['data'])+2,3)
 	
-	if smooth:
-		dataset['labels'] = label_smoothing(dataset['labels'],0.1)
-		testset['labels'] = label_smoothing(testset['labels'],0.1)
 	
 	return (dataset['data'][data_choose], dataset['labels'][data_choose]), (testset['data'][test_choose], testset['labels'][test_choose])
 

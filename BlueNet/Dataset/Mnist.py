@@ -4,7 +4,7 @@ sys.path.append("..")
 import os.path
 import pickle
 import numpy as np
-from BlueNet.Functions import _change_one_hot_label, label_smoothing
+from bluenet.functions import _change_one_hot_label,label_smoothing
 
 
 dataset_dir = os.path.dirname(os.path.abspath(__file__))

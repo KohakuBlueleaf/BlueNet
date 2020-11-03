@@ -1,6 +1,6 @@
 # coding: utf-8
-from BlueNet.setting import _np
-from BlueNet.setting import _erf
+from bluenet.setting import _np
+from bluenet.setting import _erf
 import numpy
 import gc
 
@@ -96,6 +96,105 @@ def gelu_erf_grad(x):
 ''' 
 Other Functions
 '''
+rn = _np.random.randn
+uni = _np.random.uniform
+norm = _np.random.normal
+
+def orthogonal(shape,dtype):
+	flat_shape = (shape[0], numpy.prod(shape[1:]))
+	a = rn(*flat_shape,dtype=dtype)
+	u, _, v = _np.linalg.svd(a, full_matrices=False)
+	q = u if u.shape==flat_shape else v
+	return q.reshape(shape)
+
+def get_initializer(init,init_std,init_mode,dtype):
+	#set initializer
+	if init_mode == 'xaiver':
+		def temp(*shape):
+			init_std_w = (2/sum(shape))**0.5
+			return rn(*shape,dtype=dtype)*init_std_w
+	
+	elif init_mode == 'kaiming':
+		def temp(*shape):
+			init_std_w = (4/sum(shape))**0.5
+			return rn(*shape,dtype=dtype)*init_std_w
+	
+	elif init_mode == 'lecun':
+		def temp(*shape):
+			init_std_w = (1/shape[0])**0.5
+			return rn(*shape,dtype=dtype)*init_std_w
+	
+	elif init_mode == 'xaiver-uni':
+		def temp(*shape):
+			init_std_w = (6/sum(shape))**0.5
+			return uni(-init_std_w,init_std_w,shape,dtype=dtype)
+	
+	elif init_mode == 'kaiming-uni':
+		def temp(*shape):
+			init_std_w = (12/sum(shape))**0.5
+			return uni(-init_std_w,init_std_w,shape,dtype=dtype)
+
+	elif init_mode == 'lecun-uni':
+		def temp(*shape):
+			init_std_w = (3/shape[0])**0.5
+			return uni(-init_std_w,init_std_w,shape,dtype=dtype)
+		
+	elif init_mode == 'orthogonal':
+		temp = lambda *shape:orthogonal(shape,dtype)
+
+	else:
+		temp = lambda *shape:rn(*shape,dtype=dtype)*init_std_w
+	
+	return temp
+
+def get_conv_cell(shape,mode='fb'):
+	if mode=='f':
+		return shape[0]*shape[2]*shape[3]
+	elif mode=='b':
+		return shape[1]*shape[2]*shape[3]
+	elif mode=='fb':
+		return (shape[0]+shape[1])*shape[2]*shape[3]
+	else:
+		raise AttributeError('mode should be "f","b" or "fb"')
+
+def get_conv_initializer(init,init_std,init_mode,dtype):
+	if init_mode == 'xaiver':
+		def temp(*shape):
+			init_std_w = (2/get_conv_cell(shape))**0.5
+			return rn(*shape,dtype=dtype)*init_std_w
+	
+	elif init_mode == 'kaiming':
+		def temp(*shape):
+			init_std_w = (4/get_conv_cell(shape))**0.5
+			return rn(*shape,dtype=dtype)*init_std_w
+	
+	elif init_mode == 'lecun':
+		def temp(*shape):
+			init_std_w = (1/get_conv_cell(shape, 'f'))**0.5
+			return rn(*shape,dtype=dtype)*init_std_w
+	
+	elif init_mode == 'xaiver-uni':
+		def temp(*shape):
+			init_std_w = (6/get_conv_cell(shape))**0.5
+			return uni(-init_std_w,init_std_w,shape,dtype=dtype)
+	
+	elif init_mode == 'kaiming-uni':
+		def temp(*shape):
+			init_std_w = (12/get_conv_cell(shape))**0.5
+			return uni(-init_std_w,init_std_w,shape,dtype=dtype)
+
+	elif init_mode == 'lecun-uni':
+		def temp(*shape):
+			init_std_w = (3/get_conv_cell(shape, 'f'))**0.5
+			return uni(-init_std_w,init_std_w,shape,dtype=dtype)
+		
+	elif init_mode == 'orthogonal':
+		temp = lambda *shape:orthogonal(shape,dtype)
+
+	else:
+		temp = lambda *shape:rn(*shape,dtype=dtype)*init_std_w
+	
+	return temp
 
 def zca_whiten(X):
 	sigma = _np.cov(X, rowvar=True)
@@ -105,13 +204,13 @@ def zca_whiten(X):
 	return ZCAMatrix.dot(X)
 
 def pca_whiten(X):
-   Xcov = _np.dot(X.T,X)
-   d, V = _np.linalg.eigh(Xcov)
-   D = _np.diag(1 / _np.sqrt(d+1e-7))
-   W = _np.dot(_np.dot(V, D), V.T)
-   X_white = _np.dot(X, W)
+	Xcov = _np.dot(X.T,X)
+	d, V = _np.linalg.eigh(Xcov)
+	D = _np.diag(1 / _np.sqrt(d+1e-7))
+	W = _np.dot(_np.dot(V, D), V.T)
+	X_white = _np.dot(X, W)
 
-   return X_white
+	return X_white
 
 def int_2_binary(number, binary_dim):
 	binary_list = [int(i) for i in bin(number)[2:]]
@@ -155,7 +254,7 @@ def cross_entropy_error(y, t):
 	return -_np.sum(_np.log(y[_np.arange(batch_size), t] + 1e-6)) / batch_size
 
 def RMS(y, t):
-	return _np.sum(((y-t)**2/t.size)**0.5)
+	return _np.sum(_np.sqrt((y-t)**2/t.size))
 	
 def softmax(x):
 	if x.ndim == 2:
@@ -232,7 +331,7 @@ def numerical_gradient(f, x):
 		grad[idx] = (fxh1 - fxh2) / (2*h)
 		
 		x[idx] = tmp_val
-		it.iternext()   
+		it.iternext()	 
 		
 	return grad
 
@@ -288,6 +387,25 @@ def im2col(input_data, filter_h, filter_w, stride=1, pad=0, type=_np.float32):
 			col[:, :, y, x, :, :] = img[:, :, y:y_max:stride, x:x_max:stride]
 
 	col = col.transpose(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1)
+	
+	return col
+
+def im2col_2d(input_data, filter_h, filter_w, stride=1, pad=0, type=_np.float32):
+	N, H, W = input_data.shape
+	
+	out_h = (H + 2*pad - filter_h)//stride + 1
+	out_w = (W + 2*pad - filter_w)//stride + 1
+
+	img = _np.pad(input_data, [(0,0), (pad, pad), (pad, pad)], 'constant').astype(type)
+	col = _np.zeros((N, filter_h, filter_w, out_h, out_w)).astype(type)
+
+	for y in range(filter_h):
+		y_max = y + stride*out_h
+		for x in range(filter_w):
+			x_max = x + stride*out_w
+			col[:, y, x, :, :] = img[:, y:y_max:stride, x:x_max:stride]
+
+	col = col.transpose(0, 3, 4, 1, 2).reshape(N*out_h*out_w, -1)
 	
 	return col
 

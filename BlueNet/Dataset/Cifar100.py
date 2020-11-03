@@ -4,7 +4,7 @@ sys.path.append("..")
 import pickle
 import numpy as np
 from PIL import Image
-from BlueNet.Functions import _change_one_hot_label,label_smoothing
+from bluenet.functions import _change_one_hot_label,label_smoothing
 
 
 dataset ={}

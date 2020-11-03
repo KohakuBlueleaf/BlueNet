@@ -2,13 +2,13 @@ import os
 from os import listdir
 from distutils.core import setup
 
-package_path = 'Lib/site-packages/BlueNet/Dataset'
+package_path = 'Lib/site-packages/bluenet/dataset'
 all_files = {}
 data_files = []
 queue = []
 
 try:
-	path = 'BlueNet/Dataset'
+	path = 'bluenet/dataset'
 	Dataset = listdir(path)
 	for i in Dataset:
 		queue.append((path,i))
@@ -32,8 +32,8 @@ except:
 	pass
 
 setup(
-	name = 'BlueNet',
-	packages = ['BlueNet'],
+	name = 'bluenet',
+	packages = ['bluenet'],
 	data_files = data_files,
 	version = '1.1',
 	description = 'A neural network package based on numpy',

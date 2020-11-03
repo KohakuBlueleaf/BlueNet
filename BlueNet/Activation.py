@@ -1,6 +1,6 @@
 # coding: utf-8
-from BlueNet.Functions import *	
-from BlueNet.setting import _exp		
+from bluenet.functions import *	
+from bluenet.setting import _exp		
 
 
 '''
@@ -8,7 +8,6 @@ Active Function
 '''
 
 class ID:
-	
 	'''
 	Identify y = x
 	'''

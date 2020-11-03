@@ -1,7 +1,7 @@
 # coding: utf-8
-from BlueNet.Optimizer import *
-from BlueNet.Layer import *
-from BlueNet.Activation import *
+from bluenet.optimizer import *
+from bluenet.layer import *
+from bluenet.activation import *
 
 
 #Hyperparameters
@@ -12,7 +12,7 @@ init_mode = 'xaiver'
 
 #function for network
 optimizer = Adam
-AF = GELU
+af = GELU
 
 #Usual model
 '''
@@ -58,6 +58,32 @@ AlexNet=[
 '''
 VGG
 '''
+
+VGG11=[
+			Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1}),
+			Pool(pool_h=2, pool_w=2, stride=2),
+			
+			Conv({'f_num':128, 'f_size':3, 'pad':1, 'stride':1}),
+			Pool(pool_h=2, pool_w=2, stride=2),
+			
+			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
+			Conv({'f_num':256, 'f_size':3, 'pad':1, 'stride':1}),
+			Pool(pool_h=2, pool_w=2, stride=2),
+			
+			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
+			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
+			Pool(pool_h=2, pool_w=2, stride=2),
+
+			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
+			Conv({'f_num':512, 'f_size':3, 'pad':1, 'stride':1}),
+			Pool(pool_h=2, pool_w=2, stride=2),
+			
+			Flatten(),
+			
+			Dense(output_size=4096),
+			Dense(output_size=4096),
+			Dense(output_size=1000),
+			]
 
 VGG16=[
 			Conv({'f_num':64, 'f_size':3, 'pad':1, 'stride':1}),
