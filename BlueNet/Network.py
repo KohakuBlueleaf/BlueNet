@@ -219,7 +219,7 @@ class Net:
 				total += i.size
 				total_f += i.flops
 				print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
-				print(f"│{i.name:^11}│{str(i.flops/1000000)[:7]:>7}│{i.size:>10}│{:>14}│{:>13}│".format(,,str(i.shape_in).replace(' ',''),str(i.shape_out).replace(' ','')))
+				print(f"│{i.name:^11}│{str(i.flops/1000000)[:7]:>7}│{i.size:>10}│{:>14}│{:>13}│".format(str(i.shape_in).replace(' ',''),str(i.shape_out).replace(' ','')))
 			except AttributeError:
 				pass
 				
