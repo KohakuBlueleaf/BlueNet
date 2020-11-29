@@ -143,7 +143,7 @@ def get_initializer(init,init_std,init_mode,dtype):
 		temp = lambda *shape:orthogonal(shape,dtype)
 
 	else:
-		temp = lambda *shape:rn(*shape,dtype=dtype)*init_std_w
+		temp = lambda *shape:rn(*shape,dtype=dtype)*init_std
 	
 	return temp
 
@@ -192,7 +192,7 @@ def get_conv_initializer(init,init_std,init_mode,dtype):
 		temp = lambda *shape:orthogonal(shape,dtype)
 
 	else:
-		temp = lambda *shape:rn(*shape,dtype=dtype)*init_std_w
+		temp = lambda *shape:rn(*shape,dtype=dtype)*init_std
 	
 	return temp
 

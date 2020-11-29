@@ -89,6 +89,8 @@ class Dense(Layer):
 	def __init__(self, output_size, af=None):
 		super(Dense, self).__init__(af=af)
 		self.name = 'Dense'
+		af_str = af.name if af is not None else ""
+		self.str = f'Dense({output_size},{af_str})'
 		
 		#initialize
 		self.output_size = output_size
@@ -131,6 +133,8 @@ class Conv(Layer):
 	def __init__(self, conv_param, batchnorm=False, af=None):
 		super(Conv, self).__init__(af=af)
 		self.name = 'Conv'
+		af_str = af.name if af is not None else ""
+		self.str = f'Conv({str(conv_param)},{batchnorm},{af_str})'
 		
 		#Initialize
 		self.f_num = conv_param['f_num']									#amount of filters
@@ -195,11 +199,13 @@ class Conv(Layer):
 
 		return dx
 
-
+'''
 class DepthwiseConv(Layer):
 	def __init__(self, conv_param, batchnorm=False, af=None):
 		super(DepthwiseConv, self).__init__(af=af)
 		self.name = 'DepthConv'
+		af_str = af.name if af is not None else ""
+		self.str = f'Conv({str(conv_param)},{batchnorm},{af_str})'
 		
 		#Initialize
 		self.f_size = conv_param['f_size']									#Size of filters
@@ -381,7 +387,7 @@ class MobileConv:
 		
 		self.DepthConv.load('1',path)
 		self.PointConv.load('2',path)
-		
+'''
 class DeConv(Layer):
 
 	'''
@@ -392,6 +398,8 @@ class DeConv(Layer):
 	def __init__(self, conv_param, af=None):
 		super(DeConv, self).__init__(af=af)
 		self.name = 'DeConv'
+		af_str = af.name if af is not None else ""
+		self.str = f'DeConv({str(conv_param)},{af_str})'
 		
 		#Initialize
 		self.f_num = conv_param['f_num']						#Amount of filters
@@ -453,6 +461,7 @@ class Pool(Layer):
 	def __init__(self, pool_h, pool_w, stride=1, pad=0):
 		super(Pool,self).__init__()
 		self.name = 'Max-Pool'
+		self.str = f'Pool({pool_h},{pool_w},{stride},{pad})'
 		
 		#Setting about pooling
 		self.pool_h = pool_h				#Height of the region to pool
@@ -506,6 +515,7 @@ class PoolAvg(Layer):
 	def __init__(self, pool_h, pool_w, stride=1, pad=0):
 		super(PoolAvg, self).__init__()
 		self.name = 'Avg-Pool'
+		self.str = f'PoolAvg({pool_h},{pool_w},{stride},{pad})'
 		
 		#Setting about pooling
 		self.pool_h = pool_h
@@ -552,6 +562,7 @@ class Flatten(Layer):
 	def __init__(self):
 		super(Flatten,self).__init__()
 		self.name = 'Flatten'
+		self.str = 'Flatten()'
 		
 		#Initialize
 		self.in_shape = None
@@ -571,8 +582,9 @@ class BFlatten(Layer):
 	'''
 	
 	def __init__(self, shape):
-		super(BFlaatten, self).__init__()
+		super(BFlatten, self).__init__()
 		self.name = 'BFlatten'
+		self.str = 'BFlatten()'
 		
 		#Initialize
 		self.in_shape = None
@@ -597,6 +609,7 @@ class BatchNorm(Layer):
 	def __init__(self, gamma=1.0, beta=0.0):
 		super(BatchNorm, self).__init__()
 		self.name = 'BatchNorm'
+		self.str = 'BatchNorm()'
 		
 		#initialize
 		self.gamma = gamma
@@ -665,6 +678,7 @@ class Dropout(Layer):
 	def __init__(self, dropout_ratio=0.5):
 		super(Dropout,self).__init__()
 		self.name='DropOut'
+		self.str ='Dropout()'
 		
 		self.dropout_ratio = dropout_ratio
 		self.mask = None
@@ -868,7 +882,8 @@ class ResV1(ResBlock):
 	def __init__(self,layer):
 		super(ResV1,self).__init__()
 		self.name = 'ResLayer'
-		
+		self.str = 'ResV1([{}])'.format(','.join((i.str for i in layer)))
+
 		#Initialize
 		self.layer = layer
 		
@@ -920,6 +935,7 @@ class ResV2(ResBlock):
 	def __init__(self, layer):
 		super(ResV2,self).__init__()
 		self.name = 'ResLayer'
+		self.str = 'ResV2([{}])'.format(','.join((i.str for i in layer)))
 		#initialize
 		self.layer = layer
 		
@@ -1439,6 +1455,7 @@ class SoftmaxWithLoss(Layer):
 	def __init__(self):
 		super(SoftmaxWithLoss, self).__init__()
 		self.name = 'Softmax'
+		self.str = 'SoftmaxWithLoss()'
 		
 		#Initialize
 		self.loss = None

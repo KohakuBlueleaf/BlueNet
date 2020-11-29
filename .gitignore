@@ -1,3 +1,3 @@
-example/cifar10_example/*
-example/mnist_sample/*
-build/*
+*build/*
+*__pycache__*
+*experiment*

@@ -11,8 +11,7 @@ class ID:
 	'''
 	Identify y = x
 	'''
-	def __init__(self):
-		self.name='ID'
+	name='ID'
 	
 	def forward(self, x):
 		
@@ -55,7 +54,7 @@ class Leaky:
 	
 	def __init__(self):
 		self.mask = None 			#mask for x<=0
-		self.name='LReLU'
+		self.name='Leaky'
 	
 	def forward(self, x):
 		self.mask = (x <= 0)
@@ -331,7 +330,7 @@ class Tanh:
 		return dx
 
 
-class Arctan:
+class ArcTan:
 
 	'''
 	One of Inverse trigonometric functions. Upper bound is π/2, Lower bound is -π/2

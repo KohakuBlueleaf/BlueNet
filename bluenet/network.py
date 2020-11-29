@@ -4,7 +4,7 @@
 from bluenet.activation import *
 from bluenet.optimizer import *
 from bluenet.functions import *
-from bluenet.layer import Conv,DeConv
+from bluenet.layer import *
 from bluenet.usualmodel import LeNet
 
 #native(or usual)
@@ -37,7 +37,7 @@ class Net:
 	def initialize(self, shape=(1,28,28), af=Relu, opt = Adam, rate=0.001\
 					, init_std=0.005, init_mode='normal', dtype=_np.float32, **kwargs):
 		self.structure = {
-			'network': self.net,
+			'network': '[{}]'.format(','.join((i.str for i in self.net))),
 			'shape': shape,
 			'af': af,
 			'opt': opt,
@@ -76,6 +76,8 @@ class Net:
 
 			if init_mode!='normal':
 				init_std_b=0
+			else:
+				init_std_b = init_std
 
 			if len(init.shape)==2:
 				init_w = get_initializer(init, init_std, init_mode, dtype)
@@ -118,7 +120,7 @@ class Net:
 				#set Activation Function
 				self.net[i].af = af
 				#see layer.py(In fact the function is same as here)													
-				init = self.net[i].initial(init,init_std,init_mode,af,optimizer,rate,dtype)
+				init = self.net[i].initial(init,init_std,init_mode,af,opt,rate,dtype)
 			
 			#Fully connected layer
 			elif name == 'Dense':
@@ -134,12 +136,12 @@ class Net:
 				#set Activation Function
 				self.net[i].af = af															
 				#see layer.py(In fact the function is same as here)
-				init = self.net[i].initial(init,init_std,init_mode,af,optimizer,rate,dtype)
+				init = self.net[i].initial(init,init_std,init_mode,af,opt,rate,dtype)
 			
 			elif name == 'Mobile':
 				if not self.net[i].af:
 					self.net[i].af = af
-				init = self.net[i].initial(init,init_std,init_mode,af,optimizer,rate,dtype)
+				init = self.net[i].initial(init,init_std,init_mode,af,opt,rate,dtype)
 			
 			elif name == 'TimeDense':
 				T = init.shape[1]
@@ -154,8 +156,8 @@ class Net:
 				T = init.shape[1]
 				D = init.shape[2]
 				H = self.net[i].node
-				self.net[i].params['Wx'] = init_w(D, 4*H)
-				self.net[i].params['Wh'] = init_w(H, 4*H)
+				self.net[i].params['Wx'] = _np.array([init_w(D, H) for i in range(4)]).reshape(D,H*4)
+				self.net[i].params['Wh'] = _np.array([init_w(H, H) for i in range(4)]).reshape(H,H*4)
 				self.net[i].params['b'] = _np.ones(4*H)*init_std_b
 				self.net[i].flops = T*D*4*H+T*H*4*H	
 				self.net[i].size = (D+H+1)*4*H
@@ -164,8 +166,8 @@ class Net:
 				T = init.shape[1]
 				D = init.shape[2]
 				H = self.net[i].node
-				self.net[i].params['Wx'] = init_w(D, 3*H)
-				self.net[i].params['Wh'] = init_w(H, 3*H)
+				self.net[i].params['Wx'] = _np.array([init_w(D, H) for i in range(3)]).reshape(D,H*3)
+				self.net[i].params['Wh'] = _np.array([init_w(H, H) for i in range(3)]).reshape(H,H*3)
 				self.net[i].params['b'] = _np.ones(3*H)*init_std_b
 				self.net[i].flops = T*D*3*H+T*H*3*H
 				self.net[i].size = (D+H+1)*3*H
@@ -199,13 +201,19 @@ class Net:
 		self.update('./temp/weight')
 		shutil.rmtree('./temp/')
 	
+	def set_af(self,af=GELU):
+		for layer in self.net:
+			layer.af = af()
+		
+		self.structure['af'] = af
+
 	def __copy__(self):
 		new = Net()
 		new.net = deepcopy(self.net)
 		new.layers = self.layers
 		
 		return new
-	
+
 	#print the model(About layer/amount of parameter/FLOPS...)
 	def print_size(self):
 		total = 0		#Total amount of parameters
@@ -219,15 +227,15 @@ class Net:
 				total += i.size
 				total_f += i.flops
 				print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
-				print(f"│{i.name:^11}│{str(i.flops/1000000)[:7]:>7}│{i.size:>10}│{str(i.shape_in).replace(' ',''):>14}│{str(i.shape_out).replace(' ',''):>13}│")
+				print(f"│{i.name:^11}│{str(i.flops/1000000)[:5]:^7}│{i.size:>10}│{str(i.shape_in).replace(' ',''):>14}│{str(i.shape_out).replace(' ',''):>13}│")
 			except AttributeError:
 				pass
 				
 		print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
-		print("│   Total   │{:7>}│{:>10}│              │             │".format(str(total_f/1000000)[:7],total))
+		print("│   Total   │{:^7}│{:>10}│              │             │".format(str(total_f/1000000)[:5],total))
 		print("└───────────┴───────┴──────────┴──────────────┴─────────────┘")	
 
-	def test_gradient(self, batch=10, p=False):
+	def test_gradient(self, batch=10, hist=False, hist_set=(-1.05,1.05,0.01), p=False):
 		test_data = rn(batch, *self.in_shape, dtype=self.dtype)
 		all_data = []
 		
@@ -236,31 +244,62 @@ class Net:
 				continue
 
 			test_data = layer.forward(test_data)
-			if layer.name in {'Flatten','BFlatten'}:
+			if layer.name in {'Flatten','BFlatten','Max-Pool','Avg-Pool'}:
   				continue
 			
-			all_data.append(test_data if device=='CPU' else test_data.get())
-			avg, var = _np.average(test_data), _np.var(test_data)
+			all_data.append(test_data)
+			var =  _np.var(test_data)
 
-			if p:print('avg:{} var:{}'.format(str(avg)[:5],str(var)[:5]))
-		
-		return all_data
+			if p:
+				print('var:{} std:{}'.format(str(var)[:5],str(_np.sqrt(var))[:5]))
+		if hist:
+			return [_np.histogram(data, bins=_np.arange(*hist_set))[0] for data in all_data]
+		else:
+			return [data.get() for data in all_data]
 
+	def LSUVlize(self, trials=1, levels=1, tol=0.15, batch=10):
+		test_data = rn(1, *self.in_shape, dtype=self.dtype)
+		shape = []
+		for layer in self.net:
+			shape.append(test_data.shape[1:])
+			if layer.name in {'Softmax','DropOut'}:
+				continue
+			if layer.name in {'Flatten','BFlatten'}:
+				test_data = layer.forward(test_data)
+			else:
+				test_data = layer.forward(test_data)
+
+		for layer, shape in zip(self.net, shape):
+			if layer.name in {'Softmax','DropOut','Flatten','BFlatten','Max-Pool','Avg-Pool','BatchNorm'}:
+				continue
+			
+			#temp_af = type(layer.af)
+			#layer.af = ID()
+
+			for _ in range(trials):
+				test_data = rn(batch, *shape, dtype=self.dtype)
+				var = float(_np.var(layer.forward(test_data)+1e-7))
+				if abs(var-1)<tol:
+					break
+				for key in layer.params:
+					layer.params[key] *= (1/_np.sqrt(var))**(1/levels)
+			
+			#layer.af = temp_af()
 
 	#forward process. DropOut is set OFF. SoftmaxWithLoss return the answer
 	def process(self,input,drop=False):
-		input = _np.asarray(input)
+		output = _np.asarray(input)
 		
 		for i in range(self.layers):
 			if self.net[i].name == 'DropOut' and drop:
-				input = self.net[i].forward(input)
+				output = self.net[i].forward(output)
 			
 			if self.net[i].name == 'Softmax':
-				input = self.net[i].forward(input,0,False)
+				output = self.net[i].forward(output,0,False)
 			else:
-				input = self.net[i].forward(input)
+				output = self.net[i].forward(output)
 		
-		return input
+		return output
 		
 	#forward process. DropOut is set ON. SoftmaxWithLoss return the loss
 	def forward(self, input, t=None, loss_function=None):
@@ -434,7 +473,7 @@ class Net:
 		try:
 			with open(f'{folder}structure', 'rb') as f:
 				self.structure = pickle.load(f)
-		
+			self.structure['network'] = eval(self.structure['network'])
 			self.__init__(**self.structure)
 			self.update(folder+'weight')
 			return True
