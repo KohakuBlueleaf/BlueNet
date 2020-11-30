@@ -12,12 +12,8 @@ from bluenet.activation import GELU
 from bluenet.optimizer import Adam
 
 model =  [
-			Conv({'f_num':8,'f_size':3,'pad':0,'stride':1}),
-			Pool(2,2,2),
-			Conv({'f_num':10,'f_size':3,'pad':0,'stride':1}),
-			Pool(2,2,2),
-			Conv({'f_num':105,'f_size':3,'pad':0,'stride':1}),
 			Flatten(),
+			Dense(500),
 			Dense(10),
 			SoftmaxWithLoss(),
 		]
