@@ -10,21 +10,21 @@ from bluenet.activation import *
 from bluenet.setting import _np
 
 model =[
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
-			Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
+      Conv({'f_num':10, 'f_size':3, 'pad':1, 'stride':1}),
 ]
 
 ##Initialize the neural network
@@ -54,19 +54,19 @@ all_data = [_np.zeros((int((hist_max-hist_min)/hist_range)-1)) for i in range(le
 
 start = time()
 for i in range(num):
-	print(f'{i+1}/{num}',end='\r')
-	temp = net.test_gradient(hist=True, hist_set=(hist_min, hist_max, hist_range), p=i==0)
-	for i in range(len(all_data)):
-		all_data[i] += temp[i]
+  print(f'{i+1}/{num}',end='\r')
+  temp = net.test_gradient(hist=True, hist_set=(hist_min, hist_max, hist_range), p=i==0)
+  for i in range(len(all_data)):
+    all_data[i] += temp[i]
 
 
 i = 1
 for data in all_data:
-	print(f'{i}/{len(all_data)}      ',end='\r')
-	plt.subplot(r,c,i)
-	plt.bar(hist_bins, list(data), width=hist_range)
-	plt.title(f'Layer {i}')
-	i+=1
+  print(f'{i}/{len(all_data)}      ',end='\r')
+  plt.subplot(r,c,i)
+  plt.bar(hist_bins, list(data), width=hist_range)
+  plt.title(f'Layer {i}')
+  i+=1
 
 
 '''
@@ -75,20 +75,20 @@ all_data = [[] for i in range(len(temp))]
 start = time()
 num = 10
 for i in range(num):
-	print(f'{i+1}/{num}',end='\r')
-	temp = net.test_gradient()
-	all_data = [all_data[i]+list(temp[i].reshape(-1)) for i in range(len(temp))]
+  print(f'{i+1}/{num}',end='\r')
+  temp = net.test_gradient()
+  all_data = [all_data[i]+list(temp[i].reshape(-1)) for i in range(len(temp))]
 
 fig, axes = plt.subplots(r,c)
 fig.tight_layout(pad=0.2)
 
 i = 1
 for data in all_data:
-	print(f'{i}/{len(all_data)}      ',end='\r')
-	plt.subplot(r,c,i)
-	plt.hist(data, bins=np.arange(-1.05, 1.05, 0.01))
-	plt.title(f'Layer {i}')
-	i+=1
+  print(f'{i}/{len(all_data)}      ',end='\r')
+  plt.subplot(r,c,i)
+  plt.hist(data, bins=np.arange(-1.05, 1.05, 0.01))
+  plt.title(f'Layer {i}')
+  i+=1
 '''
 
 #Show
