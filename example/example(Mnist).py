@@ -12,27 +12,29 @@ from bluenet.activation import GELU
 from bluenet.optimizer import Adam
 
 model =  [
-      Conv({'f_num':8,'f_size':3,'pad':0,'stride':1}),
-      Pool(2,2,2),
-      Conv({'f_num':10,'f_size':3,'pad':0,'stride':1}),
-      Pool(2,2,2),
-      Conv({'f_num':105,'f_size':3,'pad':0,'stride':1}),
-      Flatten(),
-      Dense(10),
-      SoftmaxWithLoss(),
-    ]
+  Conv({'f_num':8,'f_size':3,'pad':0,'stride':1}),
+  Pool(2,2,2),
+  Conv({'f_num':10,'f_size':3,'pad':0,'stride':1}),
+  Pool(2,2,2),
+  Conv({'f_num':105,'f_size':3,'pad':0,'stride':1}),
+  Flatten(),
+  Dense(10),
+  SoftmaxWithLoss(),
+]
 
 ## load train set and test set                    Normalize Flat One-hot Smooth type
 (x_train,t_train),(x_test,t_test) = mnist.load_mnist(True, False, True, True, np.float32)
 
 ##Initialize the neural network(Use LeNet)     
 net = Net(model)
-net.initialize(  shape=(1,28,28), 
-                af=GELU, 
-                opt=Adam, 
-                rate=0.001, 
-                init_mode='xaiver', 
-                dtype=np.float32)
+net.initialize(
+  shape = (1,28,28), 
+  af = GELU, 
+  opt = Adam, 
+  rate = 0.001, 
+  init_mode = 'xaiver', 
+  dtype = np.float32
+)
 path = './mnist_example/'
 net.load(path)
 
