@@ -57,97 +57,84 @@ class Net:
 
     #initial process
     init = rn(*shape,dtype=dtype)  #data for initial
-    j = 0
+    index = 0
     for i in range(self.layers):
       name = self.net[i].name
       
-      if j == 0:
-        #set the shape of data. Falt the data if first layer is dense
+      if index == 0:
+        #針對第一個神經層去處理初始化資料的形狀
         if name in D3:
           init = init.reshape(1,init.shape[0],init.shape[1],init.shape[2])
         elif name in D2:
           init = init.reshape(1,init.size)
       
-      self.net[i].shape_in = init.shape[1:]        #save the input shape
-      self.net[i].optimizer = self.optimizer(rate)        #set Optimizer
+      #設定神經層屬性
+      self.net[i].shape_in = init.shape[1:]
+      self.net[i].optimizer = self.optimizer(rate)
       if not self.net[i].af:
         self.net[i].af = af()
       self.net[i].dtype = dtype
 
+      #除了一般的隨機初始化之外 都不對偏權值進行設定
       if init_mode!='normal':
         init_std_b=0
       else:
         init_std_b = init_std
 
+      #針對不同形狀的輸入產生不一樣的初始化函數
+      init_w = None
       if len(init.shape)==2:
         init_w = get_initializer(init, init_std, init_mode, dtype)
       elif len(init.shape)==4:
         init_w = get_conv_initializer(init, init_std, init_mode, dtype)
 
-      #Convolution
       if name == 'Conv' or name == 'DeConv':
         self.net[i].params['b'] *= init_std_b
         FN, C, S = self.net[i].f_num, init.shape[1], self.net[i].f_size
 
-        #set initializer for Conv
-        #Convolution
         if name == 'Conv':
-          #weight's shape is (F_num, input_channel, F_size, F_Size)
-          self.net[i].params['W'] = init_w(FN, C, S, S)
-          out = self.net[i].forward(init)            #data to set next layer
+          self.net[i].params['w'] = init_w(FN, C, S, S)
+          out = self.net[i].forward(init)
           
           N, out_C, out_H, out_W = out.shape
-          self.net[i].flops = ((C*S**2))*out_H*out_W*out_C  #caculate the FLOPs
-          self.net[i].size = FN*C*S*S + FN          #caculate the amount of parameters
+          self.net[i].flops = ((C*S**2))*out_H*out_W*out_C
+          self.net[i].size = FN*C*S*S + FN
         
-        #Transpose Convolution
         else:
-          #weight's shape is (Input_channel,F_Num,F_size,F_Size)
-          self.net[i].params['W'] = init_w(C, FN, S, S)
-          out = self.net[i].forward(init)            #data to set next layer
+          self.net[i].params['w'] = init_w(C, FN, S, S)
+          out = self.net[i].forward(init)
           
           N, out_C, out_H, out_W = out.shape
-          self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C  #caculate the FLOPs
-          self.net[i].size = self.net[i].params['W'].size    #caculate the amount of parameters
-      
+          self.net[i].flops = ((C*S**2)-1)*out_H*out_W*out_C
+          self.net[i].size = self.net[i].params['w'].size 
         init = out
           
       elif name == 'BatchNorm':
         self.net[i].size = 2
       
-      #ResLayer(Block of ResNet)
-      elif name == 'ResLayer':
-        #set Activation Function
-        self.net[i].af = af
-        #see layer.py(In fact the function is same as here)                          
-        init = self.net[i].initial(init,init_std,init_mode,af,opt,rate,dtype)
-      
-      #Fully connected layer
       elif name == 'Dense':
         out_size = self.net[i].output_size
-        #weight's shape is (input_size,output_size)
-        self.net[i].params['W'] = init_w(init.size, out_size)
+        #全連接層的權重形狀為 輸入x輸出的矩陣
+        self.net[i].params['w'] = init_w(init.size, out_size)
         self.net[i].params['b'] *= init_std_b
         self.net[i].flops = init.shape[1]*out_size
         self.net[i].size = init.size*out_size + out_size
         
-      #ResLayer(Block of ResNet)
       elif name == 'ResLayer':
-        #set Activation Function
         self.net[i].af = af                              
-        #see layer.py(In fact the function is same as here)
-        init = self.net[i].initial(init,init_std,init_mode,af,opt,rate,dtype)
+        #ResNet的block的初始化由該層自行完成(請見layer.py)
+        init = self.net[i].initial(init, init_std, init_mode, af, opt, rate, dtype)
       
       elif name == 'Mobile':
         if not self.net[i].af:
           self.net[i].af = af
-        init = self.net[i].initial(init,init_std,init_mode,af,opt,rate,dtype)
+        init = self.net[i].initial(init, init_std, init_mode, af, opt, rate, dtype)
       
       elif name == 'TimeDense':
         T = init.shape[1]
         D = init.shape[2]
         H = self.net[i].output_size
-        self.net[i].params['W'] = init_w(D, H)
+        self.net[i].params['w'] = init_w(D, H)
         self.net[i].params['b'] = _np.ones(H)*init_std_b
         self.net[i].flops = T*D*H+H  
         self.net[i].size = D*(H+1)
@@ -175,18 +162,19 @@ class Net:
       else:
         pass
       
-      #these layers don't need to caculate the data for next layer so we just skip it
+      #不需要初始化的層
       if name not in PRE:
         try:
           init = self.net[i].forward(init)
         except:
           print(init.shape)
-          print(self.net[i].params['W'].shape)
+          print(self.net[i].params['w'].shape)
       
-      #save the output shape
+      #設定此層的輸出形狀
       self.net[i].shape_out = init.shape[1:]
-      j += 1
+      index += 1
     
+    #對所有神經網路層的權重設定dtype
     for i in range(self.layers):
       try:
         for x in self.net[i].params.keys():
@@ -197,6 +185,8 @@ class Net:
       except:
         pass
     
+    #先將資料save之後再載入
+    #這樣子可以加快效率(因為權重初始化時會額外占用資源 這樣做等於將顯卡資源重新初始化)
     self.save('./temp/')
     self.update('./temp/weight')
     shutil.rmtree('./temp/')
