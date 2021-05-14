@@ -306,12 +306,12 @@ def numerical_gradient_1d(f, x):
 
 def numerical_gradient_2d(f, X):
 	if X.ndim == 1:
-		return _numerical_gradient_1d(f, X)
+		return numerical_gradient_1d(f, X)
 	else:
 		grad = _np.zeros_like(X)
 		
 		for idx, x in enumerate(X):
-			grad[idx] = _numerical_gradient_1d(f, x)
+			grad[idx] = numerical_gradient_1d(f, x)
 		
 		return grad
 
