@@ -3,8 +3,9 @@ import time
 import numpy as np
 from numpy.random import choice as rc
 
-
 ## Import BlueNet
+import bluenet.setting
+bluenet.setting.change_device('GPU')
 import bluenet.dataset.Mnist as mnist
 from bluenet.network import Net
 from bluenet.layer import *
@@ -76,7 +77,7 @@ for j in range(epoch):
     
     loss = net.train(x_batch, t_batch)              #Train&Caculate the loss of the net
     loss_t += loss
-    if i%10==0:
+    if i%50==0:
       print('│Iters {:<6} Loss        : {:<8} │  '.format(i,str(loss)[:8]), end='\r', flush=True)
   
   cost = time.time()-start
