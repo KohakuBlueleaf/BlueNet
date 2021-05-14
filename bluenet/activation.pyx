@@ -1,3 +1,4 @@
+# coding: utf-8
 from bluenet.functions import *	
 from bluenet.setting import _exp		
 
@@ -24,7 +25,7 @@ class ID:
 class Relu:
 	
 	'''
-	��y�u�ʳ椸(Rectified Linear Unit)
+	整流線性單元(Rectified Linear Unit)
 	'''
 	
 	def __init__(self):
@@ -34,7 +35,7 @@ class Relu:
 	def forward(self, x):
 		self.mask = (x <= 0)
 		out = x.copy() 
-		out[self.mask] = 0 			#if x<=0 ���� x=0
+		out[self.mask] = 0 			#if x<=0 →→ x=0
 
 		return out
 	
@@ -58,7 +59,7 @@ class Leaky:
 	def forward(self, x):
 		self.mask = (x <= 0)
 		out = x.copy() 
-		out[self.mask] *= 0.01 		#if x<=0 ���� x=a*x
+		out[self.mask] *= 0.01 		#if x<=0 →→ x=a*x
 
 		return out
 	
@@ -86,7 +87,7 @@ class Elu:
 	def forward(self, x):
 		self.mask = (x <= 0)	
 		out = x.copy()
-		out[self.mask] = _exp(out[self.mask])-1						#if x<0����out = e^x-1
+		out[self.mask] = _exp(out[self.mask])-1						#if x<0→→out = e^x-1
 		self.out = out
 		
 		return out
@@ -104,7 +105,7 @@ class GELU:
 	
 	'''
 	Gaussian Error Linear Units
-	Definition is 0.5x(1+erf(x/��2)) 
+	Definition is 0.5x(1+erf(x/√2)) 
 	We use scipy.special.erf/cupyx.scipy.special.erf in here
 	The Derivative function of GELU is compute by WolframAlpha
 	(See functions.py)
@@ -332,7 +333,7 @@ class Tanh:
 class ArcTan:
 
 	'''
-	One of Inverse trigonometric functions. Upper bound is �k/2, Lower bound is -�k/2
+	One of Inverse trigonometric functions. Upper bound is π/2, Lower bound is -π/2
 	'''
 
 	def __init__(self):

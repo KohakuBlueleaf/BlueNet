@@ -1,3 +1,5 @@
+# coding: utf-8
+
 #Original module
 from bluenet.activation import *
 from bluenet.optimizer import *
@@ -22,15 +24,15 @@ sqrt = lambda x: x**0.5
 
 class Layer:
   def __init__(self, af=None, rate=0.001, optimizer=Adam, dtype=None):
-    self.shape_in = None                     #��J��ƧΪ�
-    self.shape_out = None                    #��X��ƧΪ�
+    self.shape_in = None                     #輸入資料形狀
+    self.shape_out = None                    #輸出資料形狀
 
     if af:
-      self.af = af()                         #���ƨ��
+      self.af = af()                         #活化函數
     else:
       self.af = None
-    self.optimizer = optimizer(lr=rate)      #�u�ƾ�
-    self.size = 0                            #�v���ƶq
+    self.optimizer = optimizer(lr=rate)      #優化器
+    self.size = 0                            #權重數量
     self.flops = 0
     
     self.params = {}
@@ -82,7 +84,7 @@ class Layer:
   
 class Dense(Layer):
   '''
-  ���s���h
+  全連接層
   '''
   
   def __init__(self, output_size, af=None):
@@ -105,7 +107,7 @@ class Dense(Layer):
     if self.params['w'] is None:
       self.params['w'] = rn(x.shape[1], self.output_size)/x.shape[1]**0.5
     
-    #��J(batch x ��J���g���ƶq) �E �v��(��J�ƶq x ��X�ƶq) = ��X(batch x ��X�ƶq)
+    #輸入(batch x 輸入神經元數量) ‧ 權重(輸入數量 x 輸出數量) = 輸出(batch x 輸出數量)
     out = _np.dot(x, self.params['w'])+self.params['b']
     out = self.af.forward(out)
     
@@ -114,8 +116,8 @@ class Dense(Layer):
   
   def backward(self,error):
     dout = self.af.backward(error)  
-    #��Jx�v��=��X �� d��J = d��X x �v��
-    #d�v�� = d��X x ��J
+    #輸入x權重=輸出 → d輸入 = d輸出 x 權重
+    #d權重 = d輸出 x 輸入
     dx = _np.dot(dout, self.params['w'].T)
     
     self.grad['b'] = _np.sum(dout, axis=0)            #BP for bias
@@ -127,7 +129,7 @@ class Dense(Layer):
 
 class Conv(Layer):
   '''
-  ���n�h
+  卷積層
   '''
   
   def __init__(self, conv_param, batchnorm=False, af=None):
@@ -161,18 +163,18 @@ class Conv(Layer):
     out_h = 1+int((h+2*self.pad-fh)/self.stride)
     out_w = 1+int((w+2*self.pad-fw)/self.stride)
     
-    #���J���v�����ϥ�im2col�i��i�}
+    #對輸入及權重都使用im2col進行展開
     col = im2col(x, fh, fw, self.stride, self.pad, self.dtype)
     col_W = self.params['w'].reshape(fn, -1).T
     
-    #�p���X�åB��col��^img
+    #計算輸出並且把col轉回img
     out = _np.dot(col, col_W)+self.params['b']
     if self.BatchNorm:
       out = self.BatchNorm.forward(out)
     out = self.af.forward(out)
     out = out.reshape(n, out_h, out_w, -1).transpose(0, 3, 1, 2)
 
-    #�x�s�ϦV�Ǽ��Ϊ����
+    #儲存反向傳播用的資料
     self.x_shape = x.shape
     self.x = x
 
@@ -181,25 +183,25 @@ class Conv(Layer):
   def backward(self, dout):
     fn, c, fh, fw = self.params['w'].shape
     
-    #�N��X��gradient�ରcol�Φ�
+    #將輸出的gradient轉為col形式
     dout = dout.transpose(0, 2, 3, 1).reshape(-1, fn)
     dout = self.af.backward(dout)
     if self.BatchNorm:
       dout = self.BatchNorm.backward(dout)
     
-    #�N��J�ରcol�Φ�
+    #將輸入轉為col形式
     col = im2col(self.x, fh, fw, self.stride, self.pad, self.dtype)
 
-    #�ϥέ��k���ϦV�Ǽ��p���v����gradient
+    #使用乘法的反向傳播計算權重的gradient
     self.grad['b'] = _np.sum(dout, axis=0)
     self.grad['w'] = _np.dot(col.T, dout).transpose(1, 0).reshape(fn, c, fh, fw)
     
-    #�R�����l���
+    #刪除冗餘資料
     del col
     del self.x
     self.x = None
     
-    #�p���J��gradient�åB��^img�Φ��ΥH���W�@�h�~��ϦV�Ǽ�
+    #計算輸入的gradient並且轉回img形式用以給上一層繼續反向傳播
     dcol = _np.dot(dout, self.params['w'].reshape(fn, -1))
     dx = col2im(dcol, self.x_shape, fh, fw, self.stride, self.pad, self.dtype)
 
@@ -208,7 +210,7 @@ class Conv(Layer):
 
 class DeConv(Layer):
   '''
-  �Ϩ��n�h
+  反卷積層
   '''
   
   def __init__(self, conv_param, af=None):

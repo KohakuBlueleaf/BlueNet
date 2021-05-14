@@ -1,3 +1,5 @@
+# coding: utf-8
+
 #Original
 from bluenet.activation import *
 from bluenet.optimizer import *
@@ -60,26 +62,26 @@ class Net:
       name = self.net[i].name
       
       if index == 0:
-        #�w��Ĥ@�ӯ��g�h�h�B�z��l�Ƹ�ƪ��Ϊ�
+        #針對第一個神經層去處理初始化資料的形狀
         if name in D3:
           init = init.reshape(1,init.shape[0],init.shape[1],init.shape[2])
         elif name in D2:
           init = init.reshape(1,init.size)
       
-      #�]�w���g�h�ݩ�
+      #設定神經層屬性
       self.net[i].shape_in = init.shape[1:]
       self.net[i].optimizer = self.optimizer(rate)
       if not self.net[i].af:
         self.net[i].af = af()
       self.net[i].dtype = dtype
 
-      #���F�@�몺�H����l�Ƥ��~ �����ﰾ�v�ȶi��]�w
+      #除了一般的隨機初始化之外 都不對偏權值進行設定
       if init_mode!='normal':
         init_std_b=0
       else:
         init_std_b = init_std
 
-      #�w�藍�P�Ϊ�����J���ͤ��@�˪���l�ƨ��
+      #針對不同形狀的輸入產生不一樣的初始化函數
       init_w = None
       if len(init.shape)==2:
         init_w = get_initializer(init, init_std, init_mode, dtype)
@@ -112,7 +114,7 @@ class Net:
       
       elif name == 'Dense':
         out_size = self.net[i].output_size
-        #���s���h���v���Ϊ��� ��Jx��X���x�}
+        #全連接層的權重形狀為 輸入x輸出的矩陣
         self.net[i].params['w'] = init_w(init.size, out_size)
         self.net[i].params['b'] *= init_std_b
         self.net[i].flops = init.shape[1]*out_size
@@ -120,7 +122,7 @@ class Net:
         
       elif name == 'ResLayer':
         self.net[i].af = af                              
-        #ResNet��block����l�ƥѸӼh�ۦ槹��(�Ш�layer.py)
+        #ResNet的block的初始化由該層自行完成(請見layer.py)
         init = self.net[i].initial(init, init_std, init_mode, af, opt, rate, dtype)
       
       elif name == 'Mobile':
@@ -160,7 +162,7 @@ class Net:
       else:
         pass
       
-      #���ݭn��l�ƪ��h
+      #不需要初始化的層
       if name not in PRE:
         try:
           init = self.net[i].forward(init)
@@ -168,11 +170,11 @@ class Net:
           print(init.shape)
           print(self.net[i].params['w'].shape)
       
-      #�]�w���h����X�Ϊ�
+      #設定此層的輸出形狀
       self.net[i].shape_out = init.shape[1:]
       index += 1
     
-    #��Ҧ����g�����h���v���]�wdtype
+    #對所有神經網路層的權重設定dtype
     for i in range(self.layers):
       try:
         for x in self.net[i].params.keys():
@@ -183,8 +185,8 @@ class Net:
       except:
         pass
     
-    #���N���save����A���J
-    #�o�ˤl�i�H�[�֮Ĳv(�]���v����l�Ʈɷ|�B�~�e�θ귽 �o�˰�����N��d�귽���s��l��)
+    #先將資料save之後再載入
+    #這樣子可以加快效率(因為權重初始化時會額外占用資源 這樣做等於將顯卡資源重新初始化)
     self.save('./temp/')
     self.update('./temp/weight')
     shutil.rmtree('./temp/')
@@ -208,20 +210,20 @@ class Net:
     total_f = 0   #Total FLOPs
     
     #print the table
-    print("�z�w�w�w�w�w�w�w�w�w�w�w�s�w�w�w�w�w�w�w�s�w�w�w�w�w�w�w�w�w�w�s�w�w�w�w�w�w�w�w�w�w�w�w�w�w�s�w�w�w�w�w�w�w�w�w�w�w�w�w�{")
-    print("�x   Layer   �x MFLOPs�x  Params  �x   Shape(In)  �x  Shape(Out) �x")
+    print("┌───────────┬───────┬──────────┬──────────────┬─────────────┐")
+    print("│   Layer   │ MFLOPs│  Params  │   Shape(In)  │  Shape(Out) │")
     for i in self.net:
       try:
         total += i.size
         total_f += i.flops
-        print("�u�w�w�w�w�w�w�w�w�w�w�w�q�w�w�w�w�w�w�w�q�w�w�w�w�w�w�w�w�w�w�q�w�w�w�w�w�w�w�w�w�w�w�w�w�w�q�w�w�w�w�w�w�w�w�w�w�w�w�w�t")
-        print(f"�x{i.name:^11}�x{str(i.flops/1000000)[:5]:^7}�x{i.size:>10}�x{str(i.shape_in).replace(' ',''):>14}�x{str(i.shape_out).replace(' ',''):>13}�x")
+        print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
+        print(f"│{i.name:^11}│{str(i.flops/1000000)[:5]:^7}│{i.size:>10}│{str(i.shape_in).replace(' ',''):>14}│{str(i.shape_out).replace(' ',''):>13}│")
       except AttributeError:
         pass
         
-    print("�u�w�w�w�w�w�w�w�w�w�w�w�q�w�w�w�w�w�w�w�q�w�w�w�w�w�w�w�w�w�w�q�w�w�w�w�w�w�w�w�w�w�w�w�w�w�q�w�w�w�w�w�w�w�w�w�w�w�w�w�t")
-    print("�x   Total   �x{:^7}�x{:>10}�x              �x             �x".format(str(total_f/1000000)[:5],total))
-    print("�|�w�w�w�w�w�w�w�w�w�w�w�r�w�w�w�w�w�w�w�r�w�w�w�w�w�w�w�w�w�w�r�w�w�w�w�w�w�w�w�w�w�w�w�w�w�r�w�w�w�w�w�w�w�w�w�w�w�w�w�}")  
+    print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
+    print("│   Total   │{:^7}│{:>10}│              │             │".format(str(total_f/1000000)[:5],total))
+    print("└───────────┴───────┴──────────┴──────────────┴─────────────┘")  
 
   def test_gradient(self, batch=10, hist=False, hist_set=(-1.05,1.05,0.01), p=False):
     test_data = rn(batch, *self.in_shape, dtype=self.dtype)
@@ -345,15 +347,15 @@ class Net:
       batch_size = train_size
     
     layer_num=1
-    print('\n�z�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�{  ')
-    print('�x Pre training start       �x  ')
+    print('\n┌────────────────────────────┐  ')
+    print('│ Pre training start       │  ')
     for i in range(len(self.net)):
       layer = self.net[i]
       layer.optimizer = self.optimizer()
       start = time()
       
       if layer.name=='Conv' or layer.name=='Mobile':
-        print("�x ===========================�x  ")
+        print("│ ===========================│  ")
         
         other_layers = self.net[:i]
         init = _np.asarray(all_data[:1])
@@ -386,7 +388,7 @@ class Net:
           pre_train_layer.train()
           
           loss = RMS(data,forward)
-          print('�x Layer {:<4}  Loss     :{:<5}�x  '.format(i+1,str(loss)[:5]), end='\r')
+          print('│ Layer {:<4}  Loss     :{:<5}│  '.format(i+1,str(loss)[:5]), end='\r')
         
         layer.optimizer = self.optimizer(self.learing_rate)
       else:
@@ -396,10 +398,10 @@ class Net:
       end = time()
       cost = end-start
       
-      print("�x Layer {:<4}       Loss:{:<5}�x  ".format(i+1,str(loss)[:5]))
-      print("�x             Cost Time:{:<5}�x  ".format(str(cost)[:5]))
+      print("│ Layer {:<4}       Loss:{:<5}│  ".format(i+1,str(loss)[:5]))
+      print("│             Cost Time:{:<5}│  ".format(str(cost)[:5]))
     
-    print('�|�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�w�}  ')
+    print('└────────────────────────────┘  ')
 
   def reset(self):
     for i in range(self.layers):
