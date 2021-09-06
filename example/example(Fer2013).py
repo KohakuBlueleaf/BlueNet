@@ -4,6 +4,8 @@ import numpy as np
 from numpy.random import choice as rc
 
 ## Import BlueNet
+import bluenet.setting
+bluenet.setting.change_device('GPU')
 import bluenet.dataset.Fer2013 as fer
 from bluenet.network import Net
 from bluenet.layer import *

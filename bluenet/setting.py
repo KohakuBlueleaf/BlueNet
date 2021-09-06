@@ -4,7 +4,7 @@ from numpy import exp as _exp
 device = 'CPU'
 
 def change_device(mode):
-  global _np, _erf, _exp
+  global _np, _erf, _exp,device
   if mode.upper()=='GPU':
     try:
       import cupy as _np

@@ -7,6 +7,15 @@ from bluenet.functions import *
 from bluenet.layer import *
 from bluenet.usualmodel import LeNet
 
+try:
+  import torch
+  nn = torch.nn
+  Seq = nn.Sequential
+  af = torch.nn.modules.activation
+  op = torch.optim
+except:
+  pass
+
 #native(or usual)
 from bluenet.setting import _np,device
 from copy import copy,deepcopy
@@ -24,6 +33,16 @@ norm = _np.random.normal
 D3 = {'Conv','DeConv','ResLayer','Flatten','Mobile'}
 D2 = {'Dense'}
 PRE = {'Conv','DeConv','Softmax','ResLayer','Mobile'}
+AF_TABLE = {
+  'Relu':'ReLU',
+  'Leaky':'LeakyReLU',
+  'Elu':'ELU',
+  'GELU':'GELU',
+  'Sigmoid':'Sigmoid',
+  'Softplus':'Softplus',
+  'Softsign':'Softsign',
+  'Tanh':'Tanh'
+}
 
 class Net:
   def __init__(self, network = [], **kwargs):
@@ -34,7 +53,7 @@ class Net:
     if kwargs:
       self.initialize(**kwargs)
   
-  def initialize(self, shape=(1,28,28), af=Relu, opt = Adam, rate=0.001\
+  def initialize(self, shape=(1,28,28), af=None, opt = Adam, rate=0.001\
           , init_std=0.005, init_mode='normal', dtype=_np.float32, **kwargs):
     self.structure = {
       'network': '[{}]'.format(','.join((i.str for i in self.net))),
@@ -56,7 +75,10 @@ class Net:
     self.dtype = dtype
 
     #initial process
-    init = rn(*shape,dtype=dtype)  #data for initial
+    if device=='Cuda':
+      init = rn(*shape, dtype=dtype)  #data for initial
+    else:
+      init = rn(*shape)  #data for initial
     index = 0
     for i in range(self.layers):
       name = self.net[i].name
@@ -71,8 +93,11 @@ class Net:
       #設定神經層屬性
       self.net[i].shape_in = init.shape[1:]
       self.net[i].optimizer = self.optimizer(rate)
-      if not self.net[i].af:
-        self.net[i].af = af()
+      if isinstance(self.net[i], Layer) and not self.net[i].af:
+        if af:
+          self.net[i].af = af()
+        else:
+          self.net[i].af = ID()
       self.net[i].dtype = dtype
 
       #除了一般的隨機初始化之外 都不對偏權值進行設定
@@ -203,6 +228,89 @@ class Net:
     new.layers = self.layers
     
     return new
+  
+  def to_torch(self):
+
+    all_component = []
+    seq = []
+    for layer in self.net:
+      if isinstance(layer, Activation):
+        seq.append(f'nn.{AF_TABLE[layer.name]}()')
+
+      if layer.name=='Dense':
+        in_, out = layer.params['w'].shape
+        seq.append(f'nn.Linear({in_}, {out})')
+        if layer.af:
+          if layer.af.name!='ID':
+            seq.append(f'nn.{AF_TABLE[layer.af.name]}()')
+      
+      elif layer.name=='Conv':
+        fn, c, fh, fw = layer.params['w'].shape
+        n, c, h, w = layer.x_shape
+        seq.append(f'nn.Conv2d({c},{fn},{fh},{layer.stride},{layer.pad})')
+        if layer.BatchNorm:
+          seq.append(f'nn.BatchNorm2d({fn})')
+        if layer.af:
+          if layer.af.name!='ID':
+            seq.append(f'nn.{AF_TABLE[layer.af.name]}()')
+      
+      elif layer.name=='Max-Pool':
+        f,s,p = layer.pool_h, layer.stride, layer.pad
+        seq.append(f'nn.MaxPool2d({f},{s},{p})')
+        all_component.append(seq)
+        seq = []
+      
+      elif layer.name=='Avg-Pool':
+        f,s,p = layer.pool_h, layer.stride, layer.pad
+        seq.append(f'nn.AvgPool2d({f},{s},{p})')
+        all_component.append(seq)
+        seq = []
+      
+      elif layer.name=='Flatten':
+        if seq:
+          all_component.append(seq)
+          seq = []
+        seq.append(f'nn.Flatten()')
+      
+      elif layer.name=='BFlatten':
+        if seq:
+          all_component.append(seq)
+          seq = []
+        seq.append(f'nn.Unflatten(1,{layer.out_shape})')
+      
+      elif layer.name=='BatchNorm':
+        in_shape = layer.input_shape
+        if len(in_shape)==4:
+          seq.append(f'nn.BatchNorm2d({in_shape[1]})')
+        if len(in_shape)==2:
+          seq.append(f'nn.BatchNorm1d({in_shape[1]})')
+      
+      elif layer.name=='DropOut':
+        if all_component and not seq:
+          all_component[-1].append(f'nn.Dropout({layer.dropout_ratio})')
+        else:
+          seq.append(f'nn.Dropout({layer.dropout_ratio})')
+      
+      elif layer.name=='Softmax':
+        seq.append('nn.Softmax(1)')
+
+    all_component.append(seq)
+    all_component = [f'    self.seq{j} = Seq({",".join(i)})' for i,j in zip(all_component,range(len(all_component)))]
+    all_component_f = [f'    x = self.seq{i}(x)' for i in range(len(all_component))]
+
+    init_str = "\n".join(all_component)
+    forward_str = "\n".join(all_component_f)
+    exec(f'''class Model(nn.Module):
+  def __init__(self):
+    super(Model, self).__init__()
+{init_str}
+  
+  def forward(self, x):
+{forward_str}
+    return x
+globals()["Model"] = Model
+''', globals(), locals())
+    return Model()
 
   #print the model(About layer/amount of parameter/FLOPS...)
   def print_size(self):
@@ -214,10 +322,15 @@ class Net:
     print("│   Layer   │ MFLOPs│  Params  │   Shape(In)  │  Shape(Out) │")
     for i in self.net:
       try:
-        total += i.size
-        total_f += i.flops
-        print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
-        print(f"│{i.name:^11}│{str(i.flops/1000000)[:5]:^7}│{i.size:>10}│{str(i.shape_in).replace(' ',''):>14}│{str(i.shape_out).replace(' ',''):>13}│")
+        if isinstance(i, Layer):
+          total += i.size
+          total_f += i.flops
+          print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
+          print(f"│{i.name:^11}│{str(i.flops/1000000)[:5]:^7}│{i.size:>10}│{str(i.shape_in).replace(' ',''):>14}│{str(i.shape_out).replace(' ',''):>13}│")
+        elif isinstance(i, Activation):
+          print("├───────────┼───────┼──────────┼──────────────┼─────────────┤")
+          print(f"│{i.name:^11}│       │          │              │             │")
+
       except AttributeError:
         pass
         
@@ -454,7 +567,8 @@ class Net:
     for i in range(self.layers):
       #call every layer's load function
       try:
-        self.net[i].load(str(i+1),folder)
+        if isinstance(self.net[i],Layer):
+          self.net[i].load(str(i+1),folder)
       except FileNotFoundError:
         pass
   
@@ -488,4 +602,5 @@ class Net:
       pickle.dump(self.structure,f)
 
     for i in range(self.layers):
-      self.net[i].save(str(i+1), folder+'weight')
+      if isinstance(self.net[i],Layer):
+        self.net[i].save(str(i+1), folder+'weight')

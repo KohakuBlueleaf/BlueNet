@@ -86,10 +86,9 @@ class Dense(Layer):
   '''
   全連接層
   '''
-  
+  name = 'Dense'
   def __init__(self, output_size, af=None):
     super(Dense, self).__init__(af=af)
-    self.name = 'Dense'
     af_str = af.name if af is not None else ""
     self.str = f'Dense({output_size},{af_str})'
     
@@ -131,10 +130,9 @@ class Conv(Layer):
   '''
   卷積層
   '''
-  
+  name = 'Conv'
   def __init__(self, conv_param, batchnorm=False, af=None):
     super(Conv, self).__init__(af=af)
-    self.name = 'Conv'
     af_str = af.name if af is not None else ""
     self.str = f'Conv({str(conv_param)},{batchnorm},{af_str})'
     
